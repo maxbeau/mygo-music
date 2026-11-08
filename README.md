@@ -176,6 +176,10 @@ Everything else takes a permission in `plugin.json`:
   `hosts` are hosts or `*.domain`, which the network permission has to reach, or `{setting:key}`, the host of the server a setting names, such as `https://nas.local:5666`, while the network permission reaches it. `*` isn't one. Without `kinds`, they go with both. In `headers`, `{setting:key}` is what the listener filled in and `{storage:key}` what the plugin keeps with `host.storage`, as each is when the request goes out: a token the plugin stores anew goes with the next one, and none is kept in a URL. A header whose value isn't there yet, as before signing in, is left out. The headers a `stream` answers come first. Neither goes on to another host a request is redirected to.
 - `"process": ["bin/helper-*", "ffmpeg"]` lists the programs `host.spawn` can start, for what JavaScript can't do: a path from the plugin's folder or absolute, or a name looked up on `PATH`. A path only matches a path and a name only a name, and `*` matches within one folder, as in a glob. `["*"]`, or `true`, asks for any program, which the listener is warned about. The listener has to allow it in Settings first, as a program can do anything they can. Programs end when the plugin does, and once allowed, `fetch` can reach this machine too, to talk to them. Ship one binary per platform and pick it with `host.platform` and `host.arch`.
 
+In Settings > Network, **Follow System Proxy** is on by default. Catalogs, artwork and audio use the system's proxy for new requests. Turn it off to stop following the system setting; an explicit proxy set in the app's environment still applies.
+
+When a granted plugin starts `ffmpeg` or `yt-dlp` with a remote audio URL, MyGo Music supplies the proxy for that URL to the program if it does not already have one. FFmpeg supports an HTTP proxy here. On macOS, FFmpeg also gets the system PEM certificate bundle for HTTPS if no other bundle is set.
+
 ## Credits
 
 - [folia-major](https://github.com/chthollyphile/folia-major): the lyric stage animations

@@ -198,6 +198,45 @@ func TestNetworkPermission(t *testing.T) {
 	}
 }
 
+// Catalog requests and artwork used to go direct when only the system proxy was set.
+func TestCatalogAndArtworkUseProxy(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Host != "music.invalid" {
+			http.Error(w, "unexpected destination", http.StatusBadRequest)
+			return
+		}
+		switch r.URL.Path {
+		case "/catalog":
+			fmt.Fprint(w, `["from the proxy"]`)
+		case "/cover":
+			fmt.Fprint(w, "cover")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	proxy, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr := music.Transport()
+	old := tr.Proxy
+	tr.Proxy = http.ProxyURL(proxy)
+	defer func() {
+		tr.CloseIdleConnections()
+		tr.Proxy = old
+	}()
+
+	p := load(t, `{"id":"proxy","permissions":{"network":["music.invalid"]}}`,
+		`export async function suggest() { return await (await fetch("http://music.invalid/catalog")).json(); }`)
+	if got, err := p.Suggest("a"); err != nil || len(got) != 1 || got[0] != "from the proxy" {
+		t.Fatalf("catalog: %v, %v", got, err)
+	}
+	if got, err := music.Fetch("http://music.invalid/cover"); err != nil || string(got) != "cover" {
+		t.Fatalf("artwork: %q, %v", got, err)
+	}
+}
+
 const spawnSource = `
 export async function suggest({ query }) {
   const proc = host.spawn(host.setting("program"), []);

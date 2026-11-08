@@ -19,6 +19,8 @@ import (
 	"mygo-music/internal/music"
 )
 
+var streamClient = &http.Client{Transport: music.Transport()}
+
 // A download fetches a song as it plays: readers wait for the bytes they
 // need, so playback starts with the first ones. The song comes into a file
 // of the cache, which keeps it once it has all come in, and is read from
@@ -104,7 +106,7 @@ func (d *download) run(ctx context.Context, url string, headers map[string]strin
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	res, err := music.HeadersStay(http.DefaultClient, req.URL.Hostname(), headers).Do(req)
+	res, err := music.HeadersStay(streamClient, req.URL.Hostname(), headers).Do(req)
 	if err != nil {
 		finish(err)
 		return

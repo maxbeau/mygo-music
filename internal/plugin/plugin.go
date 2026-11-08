@@ -494,7 +494,7 @@ func (p *Plugin) webOptions() webapi.Options {
 	if len(hosts) == 0 {
 		return webapi.Options{}
 	}
-	opts := webapi.Options{Client: &http.Client{Timeout: 10 * time.Minute}}
+	opts := webapi.Options{Client: &http.Client{Transport: music.Transport(), Timeout: 10 * time.Minute}}
 	for _, h := range hosts {
 		if h == "*" {
 			return opts

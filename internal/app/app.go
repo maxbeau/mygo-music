@@ -335,6 +335,7 @@ func Run() error {
 	a.useUpdater(i18n.Resolve(loadSettings().Language, systemLanguages()))
 	mygo.App.WhenReady(func() {
 		a.settings = loadSettings()
+		music.SetFollowSystemProxy(a.settings.FollowSystemProxy)
 		a.settings.applyAppearance()
 		i18n.SetLanguage(i18n.Resolve(a.settings.Language, systemLanguages()))
 		a.npPane = a.lyricsPaneChosen()

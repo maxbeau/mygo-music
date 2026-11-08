@@ -428,6 +428,15 @@ func (a *app) settingsSections(c *ui.Context, p palette) []settingsSection {
 		})
 	})
 
+	add("network", T("Network"), iconGlobe, func(row settingsRow, block settingsBlock) {
+		row(T("Follow System Proxy"), T("Use the system proxy for catalogs, covers and audio, starting with the next request"), func() {
+			if ui.Switch(c.Key("follow-system-proxy"), &s.FollowSystemProxy).Label(T("Follow System Proxy")).Changed() {
+				music.SetFollowSystemProxy(s.FollowSystemProxy)
+				a.changed()
+			}
+		})
+	})
+
 	add("cache", T("Cache"), iconDatabase, func(row settingsRow, block settingsBlock) {
 		row(T("Song Cache"), Tf("Songs from elsewhere are kept here to play again at once, without the network. %s", a.cacheUsage()), func() {
 			labels := make([]string, len(cacheLimits))

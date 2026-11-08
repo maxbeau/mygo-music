@@ -46,6 +46,8 @@ type settings struct {
 	Quality string `json:"quality"`
 	// Appearance is light, dark, or system to follow the system.
 	Appearance string `json:"appearance"`
+	// FollowSystemProxy uses the system's proxy for music requests.
+	FollowSystemProxy bool `json:"followSystemProxy"`
 	// GrowFromCover opens Now Playing out of the player bar's cover, and
 	// closes it back into it: an experiment the listener turns on. Off, it
 	// slides up from the bottom of the window.
@@ -88,7 +90,7 @@ type settings struct {
 }
 
 func defaultSettings() settings {
-	return settings{Language: i18n.System, NotchActivity: true, Quality: "high", Appearance: "system", Volume: 0.8, Normalize: true, AppIcon: "dock-and-menubar", CacheMB: 2048}
+	return settings{Language: i18n.System, NotchActivity: true, Quality: "high", Appearance: "system", FollowSystemProxy: true, Volume: 0.8, Normalize: true, AppIcon: "dock-and-menubar", CacheMB: 2048}
 }
 
 func settingsPath() (string, error) {

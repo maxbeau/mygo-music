@@ -19,7 +19,7 @@ const Agent = "MyGoMusic/1.0"
 
 // fetchClient gets covers: they're small, and a slow one shouldn't hold a
 // slot for long.
-var fetchClient = &http.Client{Timeout: 30 * time.Second}
+var fetchClient = &http.Client{Transport: Transport(), Timeout: 30 * time.Second}
 
 // maxFetch is the most a cover may take.
 const maxFetch = 64 << 20

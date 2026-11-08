@@ -369,4 +369,8 @@ var zhCN = map[string]string{
 	"an hour ago":                                                   "1 小时前",
 	"just now":                                                      "刚刚",
 	"yesterday":                                                     "昨天",
+
+	"Network":             "网络",
+	"Follow System Proxy": "跟随系统代理",
+	"Use the system proxy for catalogs, covers and audio, starting with the next request": "从下次请求起，目录、封面和音频使用系统代理",
 }
