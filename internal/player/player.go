@@ -79,6 +79,10 @@ type Player struct {
 
 	lyrics       []lyrics.Line
 	lyricsLoaded bool
+	lyricsText   string
+	lyricsErr    string
+	instrumental bool
+	lyricsGen    int
 
 	// pending holds a seek asked for while the track loads.
 	pending time.Duration
@@ -450,6 +454,19 @@ func (p *Player) Repeat() RepeatMode { return p.repeat }
 // Lyrics returns the current track's lyrics, and whether they have loaded.
 func (p *Player) Lyrics() ([]lyrics.Line, bool) { return p.lyrics, p.lyricsLoaded }
 
+func (p *Player) PlainLyrics() string { return p.lyricsText }
+func (p *Player) LyricsError() string { return p.lyricsErr }
+func (p *Player) Instrumental() bool  { return p.instrumental }
+
+// RetryLyrics reloads only the words, leaving the current audio untouched.
+func (p *Player) RetryLyrics() {
+	if p.track == nil {
+		return
+	}
+	p.lyricsLoaded, p.lyricsErr = false, ""
+	p.loadLyrics(p.gen, p.sourceOf(p.track), *p.track)
+}
+
 // Downloaded returns the share of the current track downloaded so far, or
 // false before it has started to.
 func (p *Player) Downloaded() (float64, bool) {
@@ -753,6 +770,7 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 	p.loading, p.playing, p.err = true, play, ""
 	p.awaiting = false
 	p.lyrics, p.lyricsLoaded = nil, false
+	p.lyricsText, p.lyricsErr, p.instrumental = "", "", false
 	p.pending = from
 	p.recorded = ""
 	p.announce(&t, nil)
@@ -841,17 +859,32 @@ func (p *Player) loadCover(gen int, t *music.Track) {
 
 // loadLyrics asks the source of t for its lyrics, if it has any.
 func (p *Player) loadLyrics(gen int, src music.Source, t music.Track) {
+	p.lyricsGen++
+	request := p.lyricsGen
 	go func() {
 		var lines []lyrics.Line
+		var data *music.Lyrics
+		var err error
 		if src != nil && src.Can("lyrics") {
-			if l, err := src.Lyrics(t.ID); err == nil && l != nil {
-				lines = lyrics.FromSource(l)
+			if richer, ok := src.(music.TrackLyricsSource); ok {
+				data, err = richer.LyricsForTrack(t)
+			} else {
+				data, err = src.Lyrics(t.ID)
+			}
+			if err == nil {
+				lines = lyrics.FromSource(data)
 			}
 		}
 		p.post(func() {
-			if gen == p.gen {
+			if gen == p.gen && request == p.lyricsGen {
 				p.lyrics = lines
 				p.lyricsLoaded = true
+				p.lyricsText, p.lyricsErr, p.instrumental = "", "", false
+				if err != nil {
+					p.lyricsErr = err.Error()
+				} else if data != nil {
+					p.lyricsText, p.instrumental = data.Text, data.Instrumental
+				}
 			}
 		})
 	}()

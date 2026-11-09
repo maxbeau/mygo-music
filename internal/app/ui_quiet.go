@@ -38,7 +38,7 @@ type quietState struct {
 // quietComment returns the hot comment to show at pos, nil for none, and
 // how long until that changes, 0 for never.
 func (a *app) quietComment(tr *music.Track, lines []lyrics.Line, loaded bool, pos time.Duration) (*music.Comment, time.Duration) {
-	if !a.settings.HotComments {
+	if !a.settings.HotComments || a.pl.PlainLyrics() != "" || a.pl.LyricsError() != "" {
 		return nil, 0
 	}
 	qs := &a.quiet

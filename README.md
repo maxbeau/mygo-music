@@ -101,7 +101,7 @@ Export a function for each thing the plugin does. Each takes one object of param
 | `comments` | `{trackId, offset}` | `{comments, total, more}` |
 | `likeComment` | `{trackId, commentId, on}` | |
 | `postComment` | `{trackId, text}` | `Comment` |
-| `lyrics` | `{id}` | `{lrc, translation}`, or `{lines}` with timed `words` |
+| `lyrics` | `{id, track?}` | `{lrc, translation}`, `{lines}` with timed `words`, `{text}` for unsynced lyrics, or `{instrumental: true}` |
 | `stream` | `{id, quality}` | `{url, type, headers, size, gain, peak}`, where `type` is `mp3`, `flac`, `ogg`, `wav`, `m4a` (ALAC, FLAC or AAC-LC, whole or in fragments as a DASH stream serves it) or `aac` (AAC-LC in ADTS) |
 | `remotePlay` | `{ids, start, position}` | |
 | `remotePause`, `remoteResume` | | |
@@ -187,6 +187,12 @@ Everything else takes a permission in `plugin.json`:
 AGPL-3.0. See [LICENSE](LICENSE).
 
 ## Seeded radio and discovery
+
+Lyrics providers may accept optional `track` metadata alongside the ID.
+Unsynced `text` is displayed as scrollable text without seeking or fabricated
+timestamps. Only an explicit `instrumental: true` result is called instrumental;
+missing lyrics and request failures have separate states. Retrying a failed
+lookup leaves playback untouched and ignores older track or retry responses.
 
 Sources may implement the optional `radio` and `related` exports. A source with both `radio` and `stationNext` gets a **Start Song Radio** menu action and a **Start Artist Radio** button; `related` gets a **Related Music** menu action. These are optional Go interfaces, so existing sources keep their `Source` implementation.
 

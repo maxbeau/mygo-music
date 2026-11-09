@@ -292,6 +292,14 @@ func (p *Plugin) Lyrics(id string) (*music.Lyrics, error) {
 	return &l, nil
 }
 
+func (p *Plugin) LyricsForTrack(track music.Track) (*music.Lyrics, error) {
+	var l music.Lyrics
+	if err := p.call("lyrics", map[string]any{"id": track.ID, "track": track}, &l); err != nil {
+		return nil, err
+	}
+	return &l, nil
+}
+
 func (p *Plugin) Stream(id, quality string) (*music.Stream, error) {
 	var s music.Stream
 	if err := p.call("stream", map[string]string{"id": id, "quality": quality}, &s); err != nil {

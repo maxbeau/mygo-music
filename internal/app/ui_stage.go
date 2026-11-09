@@ -98,6 +98,10 @@ func (a *app) stage(c *ui.Context, tr *music.Track, accent ui.Color) {
 	f := min(64, max(36, w*0.045))
 	box := ui.Box(c.Key("stage")).Grow(1)
 	a.npRise(box, 1)
+	if text := pl.PlainLyrics(); len(lines) == 0 && text != "" {
+		box.Children(func() { a.plainLyrics(c, text, 28) })
+		return
+	}
 	// In a quiet part a hot comment takes the middle, the lyrics nearly
 	// gone under it (ui_quiet.go).
 	dim, quiet := a.quietShown(c, box, tr, lines, loaded)
@@ -108,7 +112,7 @@ func (a *app) stage(c *ui.Context, tr *music.Track, accent ui.Color) {
 					stageSkeleton(c, npShimmer(c), f, w)
 					return
 				}
-				ui.Text(c, T("No lyrics. Enjoy the music.")).FontSize(28).FontWeight(800).TextColor(white.Alpha(0.4))
+				a.lyricsMessage(c, 28)
 			})
 			a.stageQuiet(c, dim, f, w)
 		})

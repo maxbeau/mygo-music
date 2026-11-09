@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"mygo-music/internal/music"
 )
 
 type youtubeTransport func(*http.Request) (*http.Response, error)
@@ -77,5 +80,78 @@ func TestYouTubePluginRuntime(t *testing.T) {
 	}
 	if len(continuations) != 2 || continuations[1] != "page-two" {
 		t.Fatalf("requests %+v", continuations)
+	}
+}
+
+// The real JS runtime passes track metadata, AbortController and UTF-8 lyrics across providers.
+func TestYouTubeLyricsRuntime(t *testing.T) {
+	dir := os.Getenv("YOUTUBE_PLUGIN_DIR")
+	if dir == "" {
+		t.Skip("set YOUTUBE_PLUGIN_DIR to the companion plugin checkout")
+	}
+	dir, _ = filepath.Abs(dir)
+	for _, provider := range []string{"lrclib", "kugou", "plain"} {
+		t.Run(provider, func(t *testing.T) {
+			previous := http.DefaultTransport
+			http.DefaultTransport = youtubeTransport(func(r *http.Request) (*http.Response, error) {
+				var answer any
+				status := 200
+				switch r.URL.Host {
+				case "music.youtube.com":
+					if strings.Contains(r.URL.Path, "/next") {
+						answer = map[string]any{"tabRenderer": map[string]any{"endpoint": map[string]any{"browseEndpoint": map[string]string{"browseId": "MPLYwords", "params": "lyrics-tab"}}}}
+					} else {
+						answer = map[string]any{"musicDescriptionShelfRenderer": map[string]any{"description": map[string]string{"simpleText": "Plain words"}}}
+					}
+				case "api.betterlyrics.org":
+					status, answer = 401, map[string]any{}
+				case "lrclib.net":
+					if provider == "lrclib" {
+						answer = map[string]any{"trackName": "Song", "artistName": "Singer", "duration": 180, "syncedLyrics": "[00:01.00]Test words"}
+					} else {
+						status, answer = 404, map[string]any{}
+					}
+				case "lyrics.kugou.com":
+					if strings.Contains(r.URL.Path, "/search") {
+						candidates := []any{}
+						if provider == "kugou" {
+							candidates = append(candidates, map[string]any{"id": "candidate", "accesskey": "test-only", "song": "Song", "singer": "Singer", "duration": 180000})
+						}
+						answer = map[string]any{"candidates": candidates}
+					} else {
+						answer = map[string]string{"content": base64.StdEncoding.EncodeToString([]byte("[00:01.00]测试歌词"))}
+					}
+				default:
+					t.Errorf("unexpected lyrics host %s", r.URL.Host)
+					status, answer = 404, map[string]any{}
+				}
+				b, _ := json.Marshal(answer)
+				return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(string(b))), Request: r}, nil
+			})
+			defer func() { http.DefaultTransport = previous }()
+			p, err := Load(dir, t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer p.Close()
+			l, err := p.LyricsForTrack(music.Track{ID: "seed", Name: "Song", Artists: []music.Artist{{Name: "Singer"}}, Duration: 180000})
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch provider {
+			case "lrclib":
+				if l.LRC != "[00:01.00]Test words" {
+					t.Fatalf("%+v", l)
+				}
+			case "kugou":
+				if l.LRC != "[00:01.00]测试歌词" {
+					t.Fatalf("%+v", l)
+				}
+			case "plain":
+				if l.Text != "Plain words" {
+					t.Fatalf("%+v", l)
+				}
+			}
+		})
 	}
 }

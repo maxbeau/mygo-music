@@ -618,6 +618,10 @@ func (a *app) paneTab(c *ui.Context, i int, label string) {
 func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 	pl := a.pl
 	lines, loaded := pl.Lyrics()
+	if text := pl.PlainLyrics(); len(lines) == 0 && text != "" {
+		a.plainLyrics(c, text, 26)
+		return
+	}
 	if len(lines) == 0 {
 		col := ui.Column(c).Grow(1)
 		if loaded {
@@ -630,7 +634,7 @@ func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 				lyricsSkeleton(c, npShimmer(c))
 				return
 			}
-			ui.Text(c, T("No lyrics. Enjoy the music.")).FontSize(24).FontWeight(700).TextColor(white.Alpha(0.4))
+			a.lyricsMessage(c, 24)
 		})
 		a.quietCard(c, dim, h*0.18)
 		return
@@ -655,6 +659,27 @@ func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 	}
 	defer a.quietCard(c, dim, h*0.18)
 	a.timedLines(c, scroll, lines, pos, cur, lag, linesStyle{size: 30, weight: 800, lineHeight: 1.25, quiet: quiet}, nil)
+}
+
+// Plain lyrics scroll normally; they never invent timings or seek on click.
+func (a *app) plainLyrics(c *ui.Context, text string, size float32) {
+	ui.Scroll(c.Key("plain-lyrics")).Grow(1).Padding(12).Children(func() {
+		ui.Text(c, text).FontSize(size).FontWeight(600).LineHeight(1.6).TextColor(white.Alpha(0.85))
+	})
+}
+
+func (a *app) lyricsMessage(c *ui.Context, size float32) {
+	message := T("No lyrics. Enjoy the music.")
+	if a.pl.Instrumental() {
+		message = T("Instrumental. Enjoy the music.")
+	}
+	if a.pl.LyricsError() != "" {
+		message = T("Couldn't load lyrics")
+	}
+	ui.Text(c, message).FontSize(size).FontWeight(700).TextColor(white.Alpha(0.4))
+	if a.pl.LyricsError() != "" && pillButton(c.Key("retry-lyrics"), iconRefresh, T("Retry"), white.Alpha(0.1), white).Margin(12, 0, 0, 0).Clicked() {
+		a.pl.RetryLyrics()
+	}
 }
 
 // linesStyle is how timedLines sets its lines: the size, weight and

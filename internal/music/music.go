@@ -272,9 +272,16 @@ type Stream struct {
 // Lyrics are a track's words: as LRC, the simple way, or as timed Lines, which
 // can time each word, and are used if there are any.
 type Lyrics struct {
-	LRC         string      `json:"lrc,omitempty"`
-	Translation string      `json:"translation,omitempty"` // LRC too
-	Lines       []LyricLine `json:"lines,omitempty"`
+	LRC          string      `json:"lrc,omitempty"`
+	Text         string      `json:"text,omitempty"`         // unsynced lyrics, displayed without seeking
+	Instrumental bool        `json:"instrumental,omitempty"` // only when explicitly confirmed
+	Translation  string      `json:"translation,omitempty"`  // LRC too
+	Lines        []LyricLine `json:"lines,omitempty"`
+}
+
+// TrackLyricsSource can use the track's metadata without another catalog lookup.
+type TrackLyricsSource interface {
+	LyricsForTrack(track Track) (*Lyrics, error)
 }
 
 // LyricLine is a line of timed lyrics, in milliseconds from the track's start.
