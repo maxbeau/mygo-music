@@ -84,11 +84,13 @@ type library struct {
 	likedAt    time.Time // when the liked songs' first page was asked for
 	likedFresh bool      // it's being asked for anew
 
-	recent      []music.Track
-	home        *music.Browse // the source's own Home
-	homeErr     string
-	homeLoading bool
-	homeAt      time.Time // when what the home page shows was asked for
+	recent                           []music.Track
+	home                             *music.Browse // the source's own Home
+	homeErr                          string
+	homeLoading                      bool
+	homeRelated                      *browseData
+	homeRelatedSeed, homeRelatedName string
+	homeAt                           time.Time // when what the home page shows was asked for
 
 	playlists map[string]*music.Playlist
 	loadingPl map[string]bool
@@ -319,6 +321,10 @@ func (a *app) libraryChanged(lib *library) {
 		}
 	}
 	for page := range lib.browses {
+		// Local Home snapshots also serve back/forward history after a library edit.
+		if page == "@home:quick" || page == "@home:mixes" {
+			continue
+		}
 		if a.route.page != pageBrowse || a.route.id != page || a.route.src != lib.id {
 			delete(lib.browses, page)
 		}

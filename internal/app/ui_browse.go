@@ -140,6 +140,7 @@ const (
 	rowStations
 	rowLinks
 	rowEmpty
+	rowEntries
 )
 
 // browseLayout lays out page in rows. The first section of Home, if tracks, is
@@ -153,6 +154,13 @@ func browseLayout(page *music.Browse, pageID string, cols int) []browseRow {
 	}
 	for s := range page.Sections {
 		sec := &page.Sections[s]
+		if len(sec.Entries) > 0 {
+			if sec.Title != "" || sec.MorePage != "" {
+				rows = append(rows, browseRow{rowTitle, s, 0, 0})
+			}
+			cards(rowEntries, s, len(sec.Entries))
+			continue
+		}
 		if s == 0 && pageID == "" && len(sec.Tracks) > 0 {
 			rows = append(rows, browseRow{rowFeature, s, 0, 0})
 			if len(sec.Albums)+len(sec.Artists)+len(sec.Playlists)+len(sec.Shows)+len(sec.Stations)+len(sec.Links) == 0 {
@@ -251,6 +259,8 @@ func (a *app) cardRow(c *ui.Context, sec *music.Section, r browseRow, cols int) 
 	ui.Grid(c).Columns(cols).GapX(20).Margin(0, 12, cardRowGap, 12).Children(func() {
 		for i := r.from; i < r.to; i++ {
 			switch r.kind {
+			case rowEntries:
+				a.browseEntryCard(c.Key(i), sec.Entries[i])
 			case rowAlbums:
 				a.albumCard(c.Key(sec.Albums[i].ID), &sec.Albums[i])
 			case rowArtists:
@@ -293,6 +303,13 @@ func (a *app) sectionPage(c *ui.Context) {
 	sec := a.sectionOf(a.route)
 	if sec == nil {
 		a.centered(c, T("This page is gone"), nil)
+		return
+	}
+	if len(sec.Entries) > 0 {
+		copy := *sec
+		copy.Title = ""
+		page := &music.Browse{Sections: []music.Section{copy}}
+		a.browseRows(c, page, "home-section", func(c *ui.Context) { a.heading(c, sec.Title, sec.Subtitle) })
 		return
 	}
 	p := a.pal

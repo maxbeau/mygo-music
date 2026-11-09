@@ -228,3 +228,17 @@ cards offer Pin/Unpin; shortcuts can be dragged, or moved with their context
 menu. Pin order survives restart and never modifies a cloud playlist.
 
 The sidebar search names its active source and supports both Cmd+K and Cmd+F.
+
+## Discovery homepage (0.1.25)
+
+A source's `home` may set `layout: "discovery"` for compact pinned shortcuts,
+up to eight quick picks, a seeded Surprise Me radio, mix recommendations and
+an optional related shelf from the current song. Other sources keep their
+existing homepage. Each recommendation shelf shows one card row; See All
+retains the complete cached collection.
+
+Sections may return ordered `entries`, each containing one of `track`,
+`album`, `artist`, `playlist`, `station` or `link`. Mixed shelves preserve that
+order instead of splitting content into separate grids by type. Typed lists
+remain available for older hosts and track actions. Track sources are stamped
+in both representations, including songs nested inside playlist entries.

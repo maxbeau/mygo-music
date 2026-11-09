@@ -22,6 +22,15 @@ func (p *Plugin) stampBrowse(b *music.Browse) {
 	for i := range b.Sections {
 		s := &b.Sections[i]
 		p.stamp(s.Tracks)
+		for k := range s.Entries {
+			entry := &s.Entries[k]
+			if entry.Track != nil {
+				entry.Track.Source = p.manifest.ID
+			}
+			if entry.Playlist != nil {
+				p.stamp(entry.Playlist.Tracks)
+			}
+		}
 		for k := range s.Playlists {
 			p.stamp(s.Playlists[k].Tracks)
 		}

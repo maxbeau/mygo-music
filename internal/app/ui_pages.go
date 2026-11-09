@@ -51,6 +51,10 @@ func (a *app) homePage(c *ui.Context) {
 	now := c.Now()
 	lib := a.library
 	if lib.home != nil && len(lib.home.Sections) > 0 {
+		if lib.home.Layout == "discovery" {
+			a.discoveryHome(c)
+			return
+		}
 		a.browseRows(c, lib.home, "", func(c *ui.Context) { a.homeHello(c, now) })
 		return
 	}

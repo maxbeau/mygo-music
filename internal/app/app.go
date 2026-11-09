@@ -36,6 +36,7 @@ const (
 	pageSection
 	pageExplore
 	pagePlaylists
+	pageHomeCollection
 )
 
 type route struct {

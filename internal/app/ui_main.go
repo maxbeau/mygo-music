@@ -395,6 +395,8 @@ func (a *app) content(c *ui.Context) {
 	// Pages mark where their content is, as they scroll.
 	a.underTop, a.underBottom = false, false
 	switch a.route.page {
+	case pageHomeCollection:
+		a.browsePage(c)
 	case pageExplore:
 		a.explorePage(c)
 	case pagePlaylists:
@@ -468,6 +470,7 @@ const homeFresh = time.Hour
 // up, else what it played lately, the playlists being the sidebar's.
 func (a *app) loadHome(lib *library) {
 	lib.homeLoading, lib.homeErr = true, ""
+	lib.homeRelated, lib.homeRelatedSeed, lib.homeRelatedName = nil, "", ""
 	at := time.Now()
 	go func() {
 		var home *music.Browse

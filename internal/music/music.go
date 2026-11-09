@@ -193,6 +193,8 @@ type CommentPage struct {
 // Browse is a page a source makes up itself, of sections it chooses: what its
 // Home shows, and any other opened from a Link, a MorePage or its Navigation.
 type Browse struct {
+	// Layout opts Home into the compact discovery dashboard.
+	Layout   string `json:"layout,omitempty"`
 	Title    string `json:"title,omitempty"`
 	Subtitle string `json:"subtitle,omitempty"`
 	// ImageURL is a picture of whom the page is about, such as a listener's
@@ -206,14 +208,17 @@ type Browse struct {
 // Section is a heading over what it lists. A section may hold several kinds,
 // shown in the order of the fields.
 type Section struct {
-	Title     string     `json:"title,omitempty"`
-	Tracks    []Track    `json:"tracks,omitempty"`
-	Albums    []Album    `json:"albums,omitempty"`
-	Artists   []Artist   `json:"artists,omitempty"`
-	Playlists []Playlist `json:"playlists,omitempty"`
-	Shows     []Show     `json:"shows,omitempty"`
-	Stations  []Station  `json:"stations,omitempty"`
-	Links     []Link     `json:"links,omitempty"`
+	// Entries preserves the service order of mixed content; typed lists remain
+	// available for older hosts and track-only actions.
+	Entries   []BrowseEntry `json:"entries,omitempty"`
+	Title     string        `json:"title,omitempty"`
+	Tracks    []Track       `json:"tracks,omitempty"`
+	Albums    []Album       `json:"albums,omitempty"`
+	Artists   []Artist      `json:"artists,omitempty"`
+	Playlists []Playlist    `json:"playlists,omitempty"`
+	Shows     []Show        `json:"shows,omitempty"`
+	Stations  []Station     `json:"stations,omitempty"`
+	Links     []Link        `json:"links,omitempty"`
 	// MorePage is the Browse page with the rest of it, if there is one.
 	MorePage string `json:"morePage,omitempty"`
 	// Empty is what the section says while it holds nothing, such as "No
@@ -489,4 +494,14 @@ type RadioSource interface {
 // RelatedSource optionally provides a track's related music as a browse page.
 type RelatedSource interface {
 	Related(id string) (*Browse, error)
+}
+
+// BrowseEntry contains exactly one content item in its original shelf order.
+type BrowseEntry struct {
+	Track    *Track    `json:"track,omitempty"`
+	Album    *Album    `json:"album,omitempty"`
+	Artist   *Artist   `json:"artist,omitempty"`
+	Playlist *Playlist `json:"playlist,omitempty"`
+	Station  *Station  `json:"station,omitempty"`
+	Link     *Link     `json:"link,omitempty"`
 }
