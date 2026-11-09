@@ -302,7 +302,11 @@ func (p *Plugin) LyricsForTrack(track music.Track) (*music.Lyrics, error) {
 
 func (p *Plugin) SearchLyrics(track music.Track, title, artist, provider string) ([]music.LyricCandidate, error) {
 	var candidates []music.LyricCandidate
-	err := p.call("searchLyrics", map[string]any{"track": track, "title": title, "artist": artist, "provider": provider}, &candidates)
+	params := map[string]any{"track": track, "title": title, "artist": artist}
+	if provider != "" {
+		params["provider"] = provider
+	}
+	err := p.call("searchLyrics", params, &candidates)
 	return candidates, err
 }
 

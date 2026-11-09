@@ -155,6 +155,9 @@ func TestLyricToolsFrames(t *testing.T) {
 	a.settings.Lyrics.Alignment = "center"
 	settled(tt)
 	saveFrame(t, dir, "lyric-tools-display.png", tt.Image())
+	a.libs[0].src = &lyricSearchFake{fake(a)}
+	fakeSource := a.libs[0].src.(*lyricSearchFake).fakeSource
+	fakeSource.info.LyricSources = []music.LyricSource{{ID: "custom-archive", Name: "Archive"}}
 	a.openLyricTools("search")
 	a.lyricTools.candidates = []music.LyricCandidate{{ID: "preview", Provider: "LRCLIB", Title: "Song", Artist: "Singer", Data: &r.Data}}
 	a.previewLyricCandidate(a.lyricTools.candidates[0])
@@ -234,5 +237,142 @@ func TestLyricToolsImportExport(t *testing.T) {
 	}
 	if lines, _ := a.pl.Lyrics(); len(lines) != 0 || a.pl.Position() != 12*time.Second {
 		t.Fatal("import invented timings")
+	}
+}
+
+type declaredLyricSearch struct {
+	*fakeSource
+	requests chan string
+	search   func(string) []music.LyricCandidate
+}
+
+func (s *declaredLyricSearch) SearchLyrics(track music.Track, title, artist, provider string) ([]music.LyricCandidate, error) {
+	s.requests <- provider
+	if s.search != nil {
+		return s.search(provider), nil
+	}
+	return []music.LyricCandidate{{ID: provider, Title: "Candidate", Provider: provider, Data: &music.Lyrics{Text: "Preview"}}}, nil
+}
+func (s *declaredLyricSearch) LyricCandidate(string) (*music.Lyrics, error) {
+	return nil, music.ErrUnsupported
+}
+
+// Selecting a plugin-defined source sends its opaque ID, including when another library is active.
+func TestLyricSourcesFollowPlayingSource(t *testing.T) {
+	a, tt := lyricToolsApp(t)
+	ch := posts(a)
+	source := &declaredLyricSearch{fakeSource: fake(a), requests: make(chan string, 2)}
+	source.info.LyricSources = []music.LyricSource{{ID: "custom-archive", Name: "Archive"}, {ID: "other-archive", Name: "Archive"}}
+	a.libs[0].src = source
+	a.library = addFake(a, newFakeSource("another-library"))
+	chooseLyrics(t, tt, "Search Lyric Sources…")
+	if err := tt.Click("Lyrics Source"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Archive (other-archive)"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Search"); err != nil {
+		t.Fatal(err)
+	}
+	until(t, ch, func() bool { return !a.lyricTools.busy })
+	if got := <-source.requests; got != "other-archive" {
+		t.Fatalf("sent %q, wanted plugin ID", got)
+	}
+	tt.Frame()
+	if err := tt.Click("Lyrics Source"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("All"); err != nil {
+		t.Fatal(err)
+	}
+	if a.lyricTools.preview != nil || len(a.lyricTools.candidates) != 0 {
+		t.Fatal("previous filter preview survived")
+	}
+	if err := tt.Click("Search"); err != nil {
+		t.Fatal(err)
+	}
+	until(t, ch, func() bool { return !a.lyricTools.busy })
+	if got := <-source.requests; got != "" {
+		t.Fatalf("All sent a provider-specific ID: %q", got)
+	}
+}
+
+// A legacy searchable source without declarations still searches with its own default.
+func TestLyricSourcesLegacyDefault(t *testing.T) {
+	a, tt := lyricToolsApp(t)
+	ch := posts(a)
+	source := &declaredLyricSearch{fakeSource: fake(a), requests: make(chan string, 1)}
+	a.libs[0].src = source
+	chooseLyrics(t, tt, "Search Lyric Sources…")
+	if err := tt.Click("Lyrics Source"); err == nil {
+		t.Fatal("undeclared selector shown")
+	}
+	if err := tt.Click("Search"); err != nil {
+		t.Fatal(err)
+	}
+	until(t, ch, func() bool { return !a.lyricTools.busy })
+	if got := <-source.requests; got != "" {
+		t.Fatalf("legacy source got %q", got)
+	}
+}
+
+// Sources that cannot search offer no search action while editing remains available.
+func TestLyricSourcesUnsupported(t *testing.T) {
+	a, tt := lyricToolsApp(t)
+	if err := tt.Click("Lyrics Options"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("Search Lyric Sources…"); err == nil {
+		t.Fatal("unsupported action offered")
+	}
+	if err := tt.ChooseMenuItem("Edit Lyrics…"); err != nil {
+		t.Fatal(err)
+	}
+	tt.Frame()
+	if !a.lyricTools.open || a.lyricTools.mode != "edit" {
+		t.Fatal("generic editor unavailable")
+	}
+}
+
+// A request started under All cannot populate the list after the listener selects another filter.
+func TestLyricSourcesRejectPreviousFilter(t *testing.T) {
+	a, tt := lyricToolsApp(t)
+	ch := posts(a)
+	release := make(chan bool)
+	source := &declaredLyricSearch{fakeSource: fake(a), requests: make(chan string, 2)}
+	source.info.LyricSources = []music.LyricSource{{ID: "new-filter", Name: "Archive"}}
+	source.search = func(provider string) []music.LyricCandidate {
+		<-release
+		return []music.LyricCandidate{{ID: "pick", Provider: provider, Title: "Candidate", Data: &music.Lyrics{Text: "Preview"}}}
+	}
+	a.libs[0].src = source
+	chooseLyrics(t, tt, "Search Lyric Sources…")
+	if err := tt.Click("Search"); err != nil {
+		t.Fatal(err)
+	}
+	if got := wait(t, source.requests, "search"); got != "" {
+		t.Fatal(got)
+	}
+	if err := tt.Click("Lyrics Source"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.Click("Archive"); err != nil {
+		t.Fatal(err)
+	}
+	close(release)
+	runPost(t, ch)
+	if a.lyricTools.busy || len(a.lyricTools.candidates) != 0 || a.lyricTools.provider != "new-filter" {
+		t.Fatal("old result reached new filter")
+	}
+	if err := tt.Click("Search"); err != nil {
+		t.Fatal(err)
+	}
+	until(t, ch, func() bool { return !a.lyricTools.busy })
+	if got := wait(t, source.requests, "filtered search"); got != "new-filter" {
+		t.Fatal(got)
+	}
+	if len(a.lyricTools.candidates) != 1 || a.lyricTools.candidates[0].Provider != "new-filter" {
+		t.Fatal("new filter did not search")
 	}
 }

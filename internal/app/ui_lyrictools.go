@@ -17,8 +17,10 @@ func (a *app) lyricOptionsButton(c *ui.Context) {
 		ui.Text(c, T("Translating…")).FontSize(11).TextColor(white.Alpha(0.6))
 	}
 	iconButton(c.Key("lyric-options"), iconMore, 18, white.Alpha(0.7), T("Lyrics Options")).Menu(func(m *ui.Menu) {
-		if m.Item(T("Search Lyric Sources…")).Chosen() {
-			a.openLyricTools("search")
+		if a.canSearchLyrics(a.pl.Current()) {
+			if m.Item(T("Search Lyric Sources…")).Chosen() {
+				a.openLyricTools("search")
+			}
 		}
 		if m.Item(T("Edit Lyrics…")).Chosen() {
 			a.openLyricTools("edit")
@@ -109,7 +111,7 @@ func (a *app) lyricToolsDialog(c *ui.Context) {
 			ui.Row(c).Gap(8).Children(func() {
 				ui.TextInput(c.Key("title"), &d.title).Label(T("Song Title")).Placeholder(T("Song Title")).Grow(1)
 				ui.TextInput(c.Key("artist"), &d.artist).Label(T("Artist")).Placeholder(T("Artist")).Grow(1)
-				ui.Select(c.Key("provider"), &d.provider, []string{"All", "YouTube", "BetterLyrics", "LRCLIB", "KuGou"}).Label(T("Lyrics Source")).Width(120)
+				a.lyricSourceSelect(c)
 				if pillButton(c.Key("search"), iconSearch, T("Search"), p.accent, p.onAccent).Disabled(d.busy).Clicked() {
 					a.searchLyricCandidates()
 				}
@@ -338,4 +340,42 @@ func (a *app) lyricsSettings(c *ui.Context, row settingsRow, block settingsBlock
 			}
 		})
 	})
+}
+
+// Source names come from plugin metadata, while the selected ID stays opaque to the host.
+func (a *app) lyricSourceSelect(c *ui.Context) {
+	d := &a.lyricTools
+	if len(d.providers) == 0 {
+		return
+	}
+	names := []string{T("All")}
+	selected := names[0]
+	seen := map[string]bool{selected: true}
+	for _, source := range d.providers {
+		name := source.Name
+		if name == "" {
+			name = source.ID
+		}
+		if seen[name] {
+			name += " (" + source.ID + ")"
+		}
+		seen[name] = true
+		names = append(names, name)
+		if source.ID == d.provider {
+			selected = name
+		}
+	}
+	if ui.Select(c.Key("provider"), &selected, names).Label(T("Lyrics Source")).Width(120).Changed() {
+		d.provider = ""
+		for i, name := range names {
+			if i > 0 && name == selected {
+				d.provider = d.providers[i-1].ID
+				break
+			}
+		}
+		// A result from the previous filter cannot appear under the newly chosen source.
+		d.gen++
+		d.busy = false
+		d.candidates, d.preview, d.previewID, d.err = nil, nil, "", ""
+	}
 }

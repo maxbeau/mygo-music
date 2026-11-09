@@ -289,6 +289,12 @@ type LyricCandidate struct {
 	Data     *Lyrics `json:"data,omitempty"`
 }
 
+// LyricSource is a plugin-owned search filter. IDs pass through unchanged; names are for display.
+type LyricSource struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type LyricsSearchSource interface {
 	SearchLyrics(track Track, title, artist, provider string) ([]LyricCandidate, error)
 	LyricCandidate(id string) (*Lyrics, error)
@@ -359,6 +365,8 @@ type Info struct {
 	Version  string    `json:"version,omitempty"`
 	Playback Playback  `json:"playback"`
 	Settings []Setting `json:"settings,omitempty"`
+	// LyricSources optionally declares filters for searchLyrics. Without it, search uses the source default.
+	LyricSources []LyricSource `json:"lyricSources,omitempty"`
 	// Navigation is the sidebar while the source is active, in this order. With
 	// none, the sidebar has an entry for each of the app's pages the source can do.
 	Navigation []NavItem `json:"navigation,omitempty"`

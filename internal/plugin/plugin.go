@@ -217,6 +217,16 @@ func Load(dir, dataDir string) (*Plugin, error) {
 			return nil, &NeedsNewerApp{Plugin: m.Name, Version: m.MinAppVersion}
 		}
 	}
+	lyricIDs := map[string]bool{}
+	for i, source := range m.LyricSources {
+		if strings.TrimSpace(source.ID) == "" || lyricIDs[source.ID] {
+			return nil, fmt.Errorf("%s: lyricSources needs unique nonempty IDs", dir)
+		}
+		lyricIDs[source.ID] = true
+		if source.Name == "" {
+			m.LyricSources[i].Name = source.ID
+		}
+	}
 	if err := checkRequestHeaders(&m); err != nil {
 		return nil, fmt.Errorf("%s: %w", dir, err)
 	}
@@ -652,6 +662,10 @@ func (p *Plugin) Info() music.Info {
 	info.Settings = slices.Clone(info.Settings)
 	for i, st := range info.Settings {
 		info.Settings[i].Label, info.Settings[i].Help = p.t(st.Label), p.t(st.Help)
+	}
+	info.LyricSources = slices.Clone(info.LyricSources)
+	for i, source := range info.LyricSources {
+		info.LyricSources[i].Name = p.t(source.Name)
 	}
 	info.Navigation = slices.Clone(info.Navigation)
 	for i, n := range info.Navigation {

@@ -129,7 +129,7 @@ Put the translations in `locales/<language>.json` next to `plugin.json`: `locale
 { "Example": "示例", "API Key": "API 密钥", "From your account page": "在你的账号页面获取", "Charts": "排行榜" }
 ```
 
-The app translates the plugin's `name`, its settings' `label` and `help` and its `navigation` titles with them. For what the plugin says itself, such as a page's titles or an error's message, `host.t(text)` answers the translation, or `text` when there's none, and `host.language()` the listener's language, `en` or `zh-CN`. Both follow the listener as they change it, and the page they're on loads again.
+The app translates the plugin's `name`, its settings' `label` and `help` and its `navigation` titles and `lyricSources` names with them. For what the plugin says itself, such as a page's titles or an error's message, `host.t(text)` answers the translation, or `text` when there's none, and `host.language()` the listener's language, `en` or `zh-CN`. Both follow the listener as they change it, and the page they're on loads again.
 
 With `"playback": "stream"`, the app plays what `stream` answers. With `"playback": "remote"`, the plugin makes the sound itself, or has another program do so, and the app calls the `remote` functions and polls `remoteState`.
 
@@ -257,3 +257,24 @@ Sections may return ordered `entries`, each containing one of `track`,
 order instead of splitting content into separate grids by type. Typed lists
 remain available for older hosts and track actions. Track sources are stamped
 in both representations, including songs nested inside playlist entries.
+
+## Declaring lyric search sources (MyGo 0.1.30)
+
+Plugins that export `searchLyrics` and `lyricCandidate` can declare their search
+filters in `plugin.json`, alongside `navigation` and `settings`:
+
+```json
+"lyricSources": [
+  { "id": "archive", "name": "Lyric Archive" }
+]
+```
+
+IDs must be nonempty and unique. `name` is display text and uses the plugin's
+locale catalog; if omitted it defaults to the ID. The host always sends the
+original ID as `searchLyrics({track, title, artist, provider})`. Choosing **All**
+omits `provider`, leaving the plugin to choose its default providers. Without a
+`lyricSources` declaration, search still works and the filter selector is hidden.
+The declaration belongs to the playing track's source, independently of the
+library currently being browsed. Changing filters discards previous candidates
+and ignores any older response. Sources without `searchLyrics` have no search
+entry; generic lyric editing and display remain available.

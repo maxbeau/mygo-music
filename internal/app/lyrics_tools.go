@@ -22,6 +22,7 @@ type lyricToolsState struct {
 	track                              music.Track
 	title, artist, provider, text, err string
 	candidates                         []music.LyricCandidate
+	providers                          []music.LyricSource
 	preview                            *music.Lyrics
 	previewID                          string
 	busy                               bool
@@ -264,7 +265,11 @@ func (a *app) openLyricTools(mode string) {
 	d.mode = mode
 	d.track = *tr
 	d.title, d.artist = tr.Name, tr.ArtistNames()
-	d.provider = "All"
+	d.provider = ""
+	d.providers = nil
+	if lib := a.libOf(tr.Source); lib != nil {
+		d.providers = lib.src.Info().LyricSources
+	}
 	d.err = ""
 	d.busy = false
 	d.preview = nil
@@ -429,4 +434,16 @@ func (a *app) lyricDocumentHash() string {
 		return a.lyricTools.hash
 	}
 	return lyrics.ContentHash(a.pl.LyricsRecord().Data)
+}
+
+func (a *app) canSearchLyrics(track *music.Track) bool {
+	if track == nil {
+		return false
+	}
+	lib := a.libOf(track.Source)
+	if lib == nil || !lib.can("searchLyrics") {
+		return false
+	}
+	_, ok := lib.src.(music.LyricsSearchSource)
+	return ok
 }
