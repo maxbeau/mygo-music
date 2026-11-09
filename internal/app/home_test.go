@@ -206,7 +206,7 @@ func TestNavigationIsTheSidebar(t *testing.T) {
 		}
 		return labels
 	}
-	if labels := strings.Join(got(), ","); labels != "Top Songs,My FM,Home" {
+	if labels := strings.Join(got(), ","); labels != "Top Songs,My FM,Home,Playlists" {
 		t.Fatalf("sidebar: %s", labels)
 	}
 	tt := ui.NewTester(a.view, 1200, 800)
@@ -221,7 +221,7 @@ func TestNavigationIsTheSidebar(t *testing.T) {
 		t.Error("an entry the source didn't list")
 	}
 	f.info.Navigation = nil
-	if labels := strings.Join(got(), ","); labels != "Home,Liked Songs,Radio,Podcasts" {
+	if labels := strings.Join(got(), ","); labels != "Home,Radio,Liked Songs,Playlists,Podcasts" {
 		t.Fatalf("default sidebar: %s", labels)
 	}
 }
@@ -237,7 +237,7 @@ func TestHomeFallsBackToRecentAndPlaylists(t *testing.T) {
 	a.loadHome(a.library)
 	a.loadMine(a.library)
 	until(t, ch, func() bool { return len(a.recent) > 0 && len(a.mine) > 0 })
-	a.mineCollapsed = true // for the card to be the one thing showing it
+	a.setPins(a.id, nil) // for the card to be the one thing showing it
 	tt := ui.NewTester(a.view, 1200, 800)
 	tt.Frame()
 	if err := tt.Click("一"); err != nil {
@@ -267,7 +267,7 @@ func TestHomeWaitsForTheSourcesOwn(t *testing.T) {
 		return &music.Browse{Sections: []music.Section{{Title: "推荐歌单", Playlists: []music.Playlist{{ID: "20", Name: "夜跑"}}}}}, nil
 	}
 	fake(a).playlists = func() ([]music.Playlist, error) { return []music.Playlist{{ID: "10", Name: "通勤", Mine: true}}, nil }
-	a.mineCollapsed = true // for the sidebar not to list it either
+	a.setPins(a.id, nil) // for the sidebar not to list it either
 	a.loadHome(a.library)
 	a.loadMine(a.library)
 	until(t, ch, func() bool { return len(a.mine) > 0 })

@@ -70,7 +70,7 @@ func TestArtistAlbums(t *testing.T) {
 		Albums: []music.Album{{ID: "8", Name: "迷跡波"}},
 	}}
 	a.open(route{page: pageArtist, id: "12"})
-	tt := ui.NewTester(a.view, 1200, 800)
+	tt := ui.NewTester(contentOnly(a), 1200, 800)
 	tt.Frame()
 	if _, ok := tt.Find("迷跡波"); ok {
 		t.Fatal("the albums show before their tab is chosen")

@@ -34,7 +34,7 @@ func (a *app) view(c *ui.Context) {
 		c.Root().Background(ui.Transparent)
 	}
 	root := ui.Box(c).Fill()
-	if !c.Focused(a.searchBox) {
+	if !c.Focused(a.searchBox) && !c.Focused(a.playlistSearchBox) {
 		// Space plays and pauses wherever the focus is, as in Music. On
 		// the container around everything, it comes before a button the
 		// pointer focused, which would take Space as a click; on the
@@ -90,6 +90,10 @@ func (a *app) shortcuts(c *ui.Context) {
 	c.OnShortcut(0, ui.KeyForward, a.goForward)
 	c.OnShortcut(ui.Cmd, ui.KeyBracketLeft, a.back)
 	c.OnShortcut(ui.Cmd, ui.KeyBracketRight, a.goForward)
+	c.OnShortcut(ui.Cmd, ui.KeyK, func() {
+		a.nowPlaying = false
+		a.searchBox.Focus(c)
+	})
 	c.OnShortcut(ui.Cmd, ui.KeyF, func() {
 		a.nowPlaying = false
 		a.searchBox.Focus(c)
@@ -146,6 +150,12 @@ func (a *app) load(r route) {
 		return
 	}
 	switch r.page {
+	case pageExplore:
+		a.loadExplore(lib, r.id, false)
+	case pagePlaylists:
+		if !lib.mineLoaded || time.Since(lib.mineAt) > listsFresh {
+			a.loadMine(lib)
+		}
 	case pageHome:
 		a.freshenHome()
 	case pagePlaylist:
@@ -226,19 +236,21 @@ func (a *app) sidebar(c *ui.Context) {
 		}
 
 		ui.Scroll(c.Key("nav")).TrackScroll(&a.navScroll).Grow(1).Margin(0, -6).Padding(0, 6).Gap(4).Children(func() {
-			for _, n := range a.sidebarItems() {
-				a.navItem(c, n.icon, n.label, n.route)
-			}
+			a.groupedNavigation(c)
 			if a.searched.query != "" && a.searched.src == a.id {
 				a.navItem(c, iconSearch, T("Search Results"), a.searched)
 			}
-			if a.can("playlists") {
-				a.myPlaylists(c, T("My Playlists"), a.mine, true, &a.mineCollapsed)
-				a.myPlaylists(c, T("Saved Playlists"), a.saved, false, &a.savedCollapsed)
-			}
+			a.pinnedSidebar(c)
 		})
 
-		a.accountRow(c)
+		ui.Row(c.Key("account-footer")).AlignItems(ui.Center).Children(func() {
+			ui.Box(c).Grow(1).MinWidth(0).Children(func() { a.accountRow(c) })
+			if a.account != nil || a.can("signIn") {
+				if iconButton(c.Key("settings"), iconSettings, 16, a.pal.muted, T("Settings")).Clicked() {
+					a.openSettings()
+				}
+			}
+		})
 	})
 }
 
@@ -383,6 +395,10 @@ func (a *app) content(c *ui.Context) {
 	// Pages mark where their content is, as they scroll.
 	a.underTop, a.underBottom = false, false
 	switch a.route.page {
+	case pageExplore:
+		a.explorePage(c)
+	case pagePlaylists:
+		a.playlistsPage(c)
 	case pageHome:
 		a.homePage(c)
 	case pagePlaylist:
@@ -586,6 +602,7 @@ type sidebarItem struct {
 	icon  *ui.SVG
 	label string
 	route route
+	group string
 }
 
 // builtinPages are the app's pages a source's sidebar can have, each with what
@@ -596,6 +613,7 @@ var builtinPages = map[string]struct {
 	label string
 	icon  func() *ui.SVG
 }{
+	"playlists":   {pagePlaylists, "playlists", "Playlists", func() *ui.SVG { return iconPlaylist }},
 	"home":        {pageHome, "", "Home", func() *ui.SVG { return iconHome }},
 	"liked":       {pageLiked, "liked", "Liked Songs", func() *ui.SVG { return iconHeart }},
 	"savedAlbums": {pageSavedAlbums, "savedAlbums", "Saved Albums", func() *ui.SVG { return iconAlbum }},
@@ -609,14 +627,23 @@ func (a *app) sidebarItems() []sidebarItem {
 	var items []sidebarItem
 	nav := a.src.Info().Navigation
 	if len(nav) == 0 {
-		for _, name := range []string{"home", "liked", "savedAlbums", "stations", "shows"} {
+		for _, name := range []string{"home", "stations", "liked", "savedAlbums", "shows"} {
 			nav = append(nav, music.NavItem{Builtin: name})
 		}
 	}
+	hasExplore, hasPlaylists := false, false
 	for _, n := range nav {
+		if n.Group == "explore" {
+			if !hasExplore && a.can("browse") {
+				items = append(items, sidebarItem{icon: iconStar, label: T("Explore"), route: route{page: pageExplore}})
+				hasExplore = true
+			}
+			continue
+		}
+		group := n.Group
 		if n.Builtin == "" {
 			if a.can("browse") {
-				items = append(items, sidebarItem{navIcon(n.Icon), n.Title, route{page: pageBrowse, id: n.Page}})
+				items = append(items, sidebarItem{icon: navIcon(n.Icon), label: n.Title, route: route{page: pageBrowse, id: n.Page}, group: group})
 			}
 			continue
 		}
@@ -624,14 +651,36 @@ func (a *app) sidebarItems() []sidebarItem {
 		if !ok || b.needs != "" && !a.can(b.needs) {
 			continue
 		}
-		item := sidebarItem{b.icon(), n.Title, route{page: b.page}}
+		if n.Builtin == "liked" || n.Builtin == "savedAlbums" || n.Builtin == "shows" || n.Builtin == "playlists" {
+			group = "library"
+		}
+		item := sidebarItem{icon: b.icon(), label: n.Title, route: route{page: b.page}, group: group}
 		if item.label == "" {
 			item.label = T(b.label)
+		}
+		if n.Builtin == "savedAlbums" && n.Title == "" {
+			item.label = T("Albums")
 		}
 		if n.Icon != "" {
 			item.icon = navIcon(n.Icon)
 		}
+		if n.Builtin == "playlists" {
+			hasPlaylists = true
+		}
 		items = append(items, item)
+	}
+	if a.can("playlists") && !hasPlaylists {
+		index := len(items)
+		for i, n := range items {
+			if n.route.page == pageLiked {
+				index = i + 1
+				break
+			}
+		}
+		item := sidebarItem{icon: iconPlaylist, label: T("Playlists"), route: route{page: pagePlaylists}, group: "library"}
+		items = append(items, sidebarItem{})
+		copy(items[index+1:], items[index:])
+		items[index] = item
 	}
 	return items
 }

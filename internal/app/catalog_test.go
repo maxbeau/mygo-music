@@ -98,7 +98,7 @@ func TestSearchPlaylists(t *testing.T) {
 	a := catalogApp()
 	asked := fakeSearch(a)
 	a.open(route{page: pageSearch, query: "MyGO", kind: music.SearchTracks})
-	tt := ui.NewTester(a.view, 1200, 800)
+	tt := ui.NewTester(contentOnly(a), 1200, 800)
 	tt.Frame()
 	if err := tt.Click("Playlists"); err != nil {
 		t.Fatal(err)

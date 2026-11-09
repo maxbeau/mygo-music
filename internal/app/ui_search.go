@@ -208,6 +208,7 @@ func (a *app) searchHeader(c *ui.Context, d *searchData) {
 func (a *app) artistCard(c *ui.Context, ar *music.Artist) {
 	p := a.pal
 	card := ui.ButtonBase(c).Column().Gap(10).AlignItems(ui.Stretch).FocusRing(false).Label(ar.Name)
+	card.ContextMenu(func(m *ui.Menu) { a.pinMenu(m, artistPin(*ar)) })
 	hovered := card.Hovered()
 	card.Children(func() {
 		art := ui.Box(c).AspectRatio(1).Radius(999)

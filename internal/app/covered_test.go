@@ -23,7 +23,7 @@ func TestCoveredPageKeepsItsPlace(t *testing.T) {
 	for i := range 40 {
 		a.mine = append(a.mine, music.Playlist{ID: fmt.Sprint(100 + i), Name: fmt.Sprintf("歌单%d", i+1), Mine: true})
 	}
-	a.mineCollapsed = true
+	a.setPins(a.id, nil)
 	a.pl.Cue([]music.Track{{ID: "9999", Name: "一张相片"}})
 	tt := ui.NewTester(a.view, 1200, 800)
 

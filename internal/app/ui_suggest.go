@@ -78,7 +78,7 @@ func (a *app) searchField(c *ui.Context) {
 		}
 		cb := ui.ComboboxBase(c.Key("search"), &a.query)
 		in := cb.Input.Bind(&a.searchBox).Grow(1).MinWidth(0).PaddingStart(31).PaddingEnd(end).
-			Placeholder(T("Search")).FontSize(13).Label(T("Search"))
+			Placeholder(Tf("Search %s…", a.name())).FontSize(13).Label(T("Search"))
 		ui.Icon(c, iconSearch).Size(14, 14).TextColor(p.muted).Absolute().Left(10).Top(8).IgnoreInput(true)
 		if clearable {
 			x := ui.ButtonBase(c.Key("clear-search")).Size(22, 22).Center().Absolute().Right(4).Top(4).

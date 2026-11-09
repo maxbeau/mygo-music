@@ -18,7 +18,7 @@ func longHome(a *app) {
 	for i := range 40 {
 		a.mine = append(a.mine, music.Playlist{ID: fmt.Sprint(i + 1), Name: "歌单", Mine: true})
 	}
-	a.mineCollapsed = true
+	a.setPins(a.id, nil)
 }
 
 // The edges over a page show while content is under them: at the foot of a

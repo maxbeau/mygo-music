@@ -494,3 +494,9 @@ func (s *fakeSource) Related(id string) (*music.Browse, error) {
 	}
 	return s.related(id)
 }
+
+// contentOnly scopes a page interaction to its content when a sidebar entry
+// has the same visible name, such as the Albums or Playlists tabs.
+func contentOnly(a *app) func(*ui.Context) {
+	return func(c *ui.Context) { a.pal = paletteFor(c.Theme()); a.shortcuts(c); a.content(c) }
+}

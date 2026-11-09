@@ -238,7 +238,7 @@ func TestHiddenWithoutCapability(t *testing.T) {
 		{"liked songs", "liked", "Liked Songs", nil},
 		{"radio", "stations", "Radio", nil},
 		{"podcasts", "shows", "Podcasts", nil},
-		{"saved albums", "savedAlbums", "Saved Albums", nil},
+		{"saved albums", "savedAlbums", "Albums", nil},
 		{"search", "search", "Search", nil},
 		{"new playlist", "createPlaylist", "New Playlist", nil},
 		{"heart", "like", "Like", playing},
@@ -324,8 +324,10 @@ func TestPlaylistMenuGoesWithoutCapability(t *testing.T) {
 	}
 	a.deleting.open = false
 	without(a, "deletePlaylist")
-	if items := menu(t, a, tt); items != nil {
-		t.Errorf("a menu of %q with nothing to do", items)
+	for _, item := range menu(t, a, tt) {
+		if item == "Rename…" || item == "Delete Playlist…" {
+			t.Errorf("cloud action without capability: %q", item)
+		}
 	}
 
 	a.route = route{page: pagePlaylist, src: "fake", id: "10"}
@@ -854,7 +856,7 @@ func TestSourceShowsAsItselfAtOnce(t *testing.T) {
 		if _, ok := tt.Find("Daily"); !ok {
 			t.Error("its own page isn't in the sidebar")
 		}
-		if tt.HasText("Sign in to plugin") || tt.HasText("Settings") {
+		if tt.HasText("Sign in to plugin") {
 			t.Error("the account's row says what isn't known yet")
 		}
 	}

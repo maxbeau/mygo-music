@@ -34,6 +34,8 @@ const (
 	pageSavedAlbums
 	pageBrowse
 	pageSection
+	pageExplore
+	pagePlaylists
 )
 
 type route struct {
@@ -105,7 +107,7 @@ type app struct {
 	navScroll  ui.ScrollState
 	scrolled   route // the page trackList and pageScroll are of
 
-	mineCollapsed, savedCollapsed bool
+	playlistSearchBox ui.Handle
 
 	query     string
 	searchBox ui.Handle

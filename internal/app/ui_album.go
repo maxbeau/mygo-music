@@ -92,8 +92,9 @@ func (a *app) albumHeader(c *ui.Context, d *albumData) {
 				}
 				ui.Text(c, sep+strings.Join(meta, " · "))
 			})
-			ui.Row(c).Gap(10).Margin(10, 0, 0, 0).Children(func() {
+			ui.Row(c).Wrap().Gap(10).Margin(10, 0, 0, 0).Children(func() {
 				a.playButtons(c, tracks)
+				a.pinButton(c.Key("pin"), albumPin(*al))
 				if a.can("saveAlbum") {
 					icon, label := iconPlus, TC("Save", "library")
 					if al.Saved {
@@ -197,6 +198,7 @@ func artistNames(artists []music.Artist) string {
 func (a *app) albumCard(c *ui.Context, al *music.Album) {
 	p := a.pal
 	card := ui.ButtonBase(c).Column().Gap(10).AlignItems(ui.Stretch).FocusRing(false).Label(al.Name)
+	card.ContextMenu(func(m *ui.Menu) { a.pinMenu(m, albumPin(*al)) })
 	hovered := card.Hovered()
 	card.Children(func() {
 		art := ui.Box(c).AspectRatio(1).Radius(10)

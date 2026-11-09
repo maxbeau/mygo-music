@@ -85,6 +85,8 @@ type settings struct {
 	CacheMB int `json:"cacheMB"`
 	// SearchHistory keeps submitted keywords, most recent first.
 	SearchHistory []string `json:"searchHistory,omitempty"`
+	// SidebarPins is ordered and scoped to each source. An empty list stays empty.
+	SidebarPins map[string][]sidebarPin `json:"sidebarPins,omitempty"`
 
 	path string // where they were loaded from, and are saved to
 }

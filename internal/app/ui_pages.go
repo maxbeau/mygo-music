@@ -162,9 +162,12 @@ func (a *app) emptyHome(c *ui.Context) {
 func (a *app) playlistCard(c *ui.Context, pl *music.Playlist) {
 	lib := a.library
 	id := pl.ID
-	if a.coverCard(c, pl.Name, pl.ImageURL, playlistLine(pl), func() { a.loadPlaylist(lib, id, true) }) {
-		a.open(route{page: pagePlaylist, id: id})
-	}
+	// A wrapper receives the context menu without interfering with the play overlay.
+	ui.Box(c).ContextMenu(func(m *ui.Menu) { a.playlistCardMenu(m, *pl) }).Children(func() {
+		if a.coverCard(c, pl.Name, pl.ImageURL, playlistLine(pl), func() { a.loadPlaylist(lib, id, true) }) {
+			a.open(route{page: pagePlaylist, id: id})
+		}
+	})
 }
 
 // playlistLine is what a playlist's card says under its name: how many songs
@@ -291,8 +294,9 @@ func (a *app) playlistHeader(c *ui.Context, pl *music.Playlist) {
 			if d := strings.TrimSpace(pl.Description); d != "" {
 				ui.Text(c, strings.ReplaceAll(d, "\n", " ")).FontSize(12.5).TextColor(p.muted).MaxLines(2).LineHeight(1.45).Margin(2, 0, 0, 0)
 			}
-			ui.Row(c).Gap(10).Margin(10, 0, 0, 0).Children(func() {
+			ui.Row(c).Wrap().Gap(10).Margin(10, 0, 0, 0).Children(func() {
 				a.playButtons(c, pl.Tracks)
+				a.pinButton(c.Key("pin"), playlistPin(*pl))
 				if a.savable(pl) {
 					icon, label := iconPlus, TC("Save", "library")
 					if a.isSaved(pl) {

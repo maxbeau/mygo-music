@@ -223,7 +223,7 @@ func (a *app) artistHeader(c *ui.Context, d *artistData) {
 				meta = append(meta, Tf("%d albums", n))
 			}
 			ui.Text(c, strings.Join(meta, " · ")).FontSize(13).TextColor(p.muted)
-			ui.Row(c).Gap(10).Margin(10, 0, 0, 0).Children(func() {
+			ui.Row(c).Wrap().Gap(10).Margin(10, 0, 0, 0).Children(func() {
 				if len(songs) > 0 {
 					a.playButtons(c, songs)
 				}
@@ -232,6 +232,7 @@ func (a *app) artistHeader(c *ui.Context, d *artistData) {
 						a.startSeedRadio(lib, "artist", ar.ID)
 					}
 				}
+				a.pinButton(c.Key("pin"), artistPin(*ar))
 				if a.can("followArtist") {
 					icon, label := iconPlus, T("Follow")
 					if ar.Following {
@@ -271,7 +272,7 @@ func (a *app) artistHeaderSkeleton(c *ui.Context, s shimmer) {
 				s.text(c, 12.5, 1.45).WidthPercent(78)
 				s.text(c, 12.5, 1.45).WidthPercent(52)
 			})
-			ui.Row(c).Gap(10).Margin(10, 0, 0, 0).Children(func() {
+			ui.Row(c).Wrap().Gap(10).Margin(10, 0, 0, 0).Children(func() {
 				s.bone(c, 18).Size(92, 36)
 				s.bone(c, 18).Size(120, 36)
 			})

@@ -212,3 +212,19 @@ For a local installation that uses the normal app name, identifier and data,
 build with `MYGO_LOCAL_BUILD=1` instead of `MYGO_PREVIEW=1`. Both development
 build modes omit the upstream release feed, so an upstream update cannot
 replace local feature work.
+
+## Sidebar and library
+
+Navigation items may set `group: "explore"` to become tabs in a single Explore
+entry, or `group: "library"` to join personal-library navigation. Existing
+custom pages still appear as discovery entries. Sources with `playlists` get
+one playlist library with All, Created by Me and Saved by Me filters, local
+search and name sorting. Those operations do not reorder the source's data.
+
+Sidebar pins are stored locally per source in `settings.json`. The first
+successful nonempty playlist load seeds at most six shortcuts for migration.
+An explicitly empty set remains empty. Playlist, album and artist pages and
+cards offer Pin/Unpin; shortcuts can be dragged, or moved with their context
+menu. Pin order survives restart and never modifies a cloud playlist.
+
+The sidebar search names its active source and supports both Cmd+K and Cmd+F.

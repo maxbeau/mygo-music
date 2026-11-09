@@ -116,14 +116,20 @@ func (a *app) loadMine(lib *library) {
 	if !lib.can("playlists") {
 		return
 	}
+	if lib.mineLoading {
+		return
+	}
+	lib.mineLoading, lib.mineErr = true, ""
 	lib.mineAt = time.Now()
 	go func() {
 		lists, err := lib.src.Playlists()
 		a.post(func() {
+			lib.mineLoading = false
 			if err != nil {
-				a.problem(lib, err, T("Couldn't load your playlists"))
+				lib.mineErr = a.problem(lib, err, T("Couldn't load your playlists"))
 				return
 			}
+			lib.mineLoaded = true
 			lib.mine, lib.saved = nil, nil
 			for _, pl := range lists {
 				if pl.Mine {
@@ -132,6 +138,7 @@ func (a *app) loadMine(lib *library) {
 					lib.saved = append(lib.saved, pl)
 				}
 			}
+			a.seedPins(lib)
 		})
 	}()
 }
@@ -254,6 +261,9 @@ func (a *app) deleteChosen() {
 				return
 			}
 			delete(lib.playlists, id)
+			if pin := playlistPin(pl); a.isPinned(lib, pin) {
+				a.togglePin(lib, pin)
+			}
 			a.toast = T("Playlist deleted")
 		})
 	}()

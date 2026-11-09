@@ -239,6 +239,8 @@ type Link struct {
 // NavItem is an entry of the sidebar: a Browse page of the source's own, by
 // Page, or one of the app's, by Builtin.
 type NavItem struct {
+	// Group is explore for a tab of Explore, or library for a personal page.
+	Group string `json:"group,omitempty"`
 	Title string `json:"title"`
 	Page  string `json:"page,omitempty"`
 	// Builtin is home, liked, savedAlbums, stations or shows. One the source

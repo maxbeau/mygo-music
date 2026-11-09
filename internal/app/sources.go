@@ -68,9 +68,14 @@ type library struct {
 	// setupReason is what the source said it needs setting up for, if it did.
 	setupReason string
 
-	mine, saved []music.Playlist // the listener's playlists: made, and saved
-	mineAt      time.Time        // when they were last asked for
-	savingPl    map[string]bool  // the playlists whose saving or its end is on its way
+	pinsExpanded                 bool
+	playlistQuery                string
+	playlistFilter, playlistSort int
+	mineLoading, mineLoaded      bool
+	mineErr                      string
+	mine, saved                  []music.Playlist // the listener's playlists: made, and saved
+	mineAt                       time.Time        // when they were last asked for
+	savingPl                     map[string]bool  // the playlists whose saving or its end is on its way
 
 	liked      map[string]bool // the tracks known to be liked, or not
 	wantLikes  []string        // the tracks a heart showed for, to ask about
@@ -327,6 +332,14 @@ func (a *app) libraryChanged(lib *library) {
 
 // reload loads what the page of r shows anew.
 func (a *app) reload(r route) {
+	if r.page == pageExplore {
+		a.loadExplore(a.libOf(r.src), r.id, true)
+		return
+	}
+	if r.page == pagePlaylists {
+		a.loadMine(a.libOf(r.src))
+		return
+	}
 	if r.page == pageBrowse {
 		a.loadBrowse(a.libOf(r.src), r.id, true)
 		return
