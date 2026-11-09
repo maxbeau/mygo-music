@@ -155,3 +155,44 @@ func TestYouTubeLyricsRuntime(t *testing.T) {
 		})
 	}
 }
+
+// Manual search and candidate downloads cross the actual JS bridge, including UTF-8 preview data.
+func TestYouTubeLyricSearchRuntime(t *testing.T) {
+	dir := os.Getenv("YOUTUBE_PLUGIN_DIR")
+	if dir == "" {
+		t.Skip("set YOUTUBE_PLUGIN_DIR")
+	}
+	dir, _ = filepath.Abs(dir)
+	previous := http.DefaultTransport
+	http.DefaultTransport = youtubeTransport(func(r *http.Request) (*http.Response, error) {
+		var answer any
+		if r.URL.Host == "lrclib.net" {
+			answer = []any{map[string]any{"id": 1, "trackName": "Song", "artistName": "Singer", "duration": 180, "syncedLyrics": "[00:01.00]预览"}}
+		} else if r.URL.Path == "/search" {
+			answer = map[string]any{"candidates": []any{map[string]any{"id": "pick", "accesskey": "test-only", "song": "Song", "singer": "Singer", "duration": 180000}}}
+		} else {
+			answer = map[string]string{"content": base64.StdEncoding.EncodeToString([]byte("[00:01.00]选定歌词"))}
+		}
+		b, _ := json.Marshal(answer)
+		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(string(b))), Request: r}, nil
+	})
+	defer func() { http.DefaultTransport = previous }()
+	p, err := Load(dir, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	track := music.Track{ID: "seed", Name: "Song", Artists: []music.Artist{{Name: "Singer"}}, Duration: 180000}
+	rows, err := p.SearchLyrics(track, "Song", "Singer", "LRCLIB")
+	if err != nil || len(rows) != 1 || rows[0].Data == nil || rows[0].Data.LRC != "[00:01.00]预览" {
+		t.Fatalf("%+v %v", rows, err)
+	}
+	rows, err = p.SearchLyrics(track, "Song", "Singer", "KuGou")
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("%+v %v", rows, err)
+	}
+	data, err := p.LyricCandidate(rows[0].ID)
+	if err != nil || data.LRC != "[00:01.00]选定歌词" {
+		t.Fatalf("%+v %v", data, err)
+	}
+}

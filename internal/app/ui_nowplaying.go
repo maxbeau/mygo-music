@@ -326,6 +326,7 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *music.Track, art *artwork, accen
 			a.npRise(reveal(npTabsRow(c, w), pointerIn), 0).Children(func() {
 				a.paneTabs(c)
 				a.stageStyleButton(c)
+				a.lyricOptionsButton(c)
 			})
 			a.stage(c, tr, accent)
 			a.stageBar(c, tr, art, accent)
@@ -351,7 +352,12 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *music.Track, art *artwork, accen
 		// the controls.
 		side = max(coverSize, 280)
 		padX := npSideX(w)
-		a.npRise(reveal(npTabsRow(c, w), pointerIn), 0).Children(func() { a.paneTabs(c) })
+		a.npRise(reveal(npTabsRow(c, w), pointerIn), 0).Children(func() {
+			a.paneTabs(c)
+			if tr.ShowID == "" {
+				a.lyricOptionsButton(c)
+			}
+		})
 		ui.Row(c).Grow(1).Padding(0, padX, 44, padX).Gap(72).AlignItems(ui.Stretch).Children(func() {
 			var coverTop float32
 			ui.Column(c).Width(side).Justify(ui.Center).Gap(0).Children(func() {
@@ -618,8 +624,9 @@ func (a *app) paneTab(c *ui.Context, i int, label string) {
 func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 	pl := a.pl
 	lines, loaded := pl.Lyrics()
+	lines = a.lyricLines()
 	if text := pl.PlainLyrics(); len(lines) == 0 && text != "" {
-		a.plainLyrics(c, text, 26)
+		a.plainLyrics(c, a.lyricPlainText(), float32(a.lyricFontSize())-4)
 		return
 	}
 	if len(lines) == 0 {
@@ -639,7 +646,7 @@ func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 		a.quietCard(c, dim, h*0.18)
 		return
 	}
-	pos := pl.Position()
+	pos := a.lyricPosition()
 	cur := lyrics.Index(lines, pos)
 	// Redraw as the next line begins.
 	if pl.Playing() && cur+1 < len(lines) {
@@ -658,13 +665,17 @@ func (a *app) lyricsPane(c *ui.Context, tr *music.Track, h float32) {
 		scroll.Invisible()
 	}
 	defer a.quietCard(c, dim, h*0.18)
-	a.timedLines(c, scroll, lines, pos, cur, lag, linesStyle{size: 30, weight: 800, lineHeight: 1.25, quiet: quiet}, nil)
+	a.timedLines(c, scroll, lines, pos, cur, lag, linesStyle{size: float32(a.lyricFontSize()), weight: 800, lineHeight: 1.25, quiet: quiet}, nil)
 }
 
 // Plain lyrics scroll normally; they never invent timings or seek on click.
 func (a *app) plainLyrics(c *ui.Context, text string, size float32) {
 	ui.Scroll(c.Key("plain-lyrics")).Grow(1).Padding(12).Children(func() {
-		ui.Text(c, text).FontSize(size).FontWeight(600).LineHeight(1.6).TextColor(white.Alpha(0.85))
+		align := ui.Start
+		if a.settings.Lyrics.Alignment == "center" {
+			align = ui.Center
+		}
+		ui.Text(c, text).FontSize(size).FontWeight(600).LineHeight(1.6).TextAlign(align).TextColor(white.Alpha(0.85))
 	})
 }
 
@@ -702,10 +713,14 @@ func (a *app) timedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Line, 
 	// Japanese lyrics are drawn in a Japanese font, kanji and kana alike;
 	// their translations in the app's language.
 	lang := lyrics.Lang(lines)
+	align := ui.Start
+	if a.settings.Lyrics.Alignment == "center" {
+		align = ui.Center
+	}
 	scroll.Children(func() {
 		ui.Column(c).Gap(6).Translate(0, -lag).Children(func() {
 			for i, l := range lines {
-				line := ui.ButtonBase(c.Key(i)).Column().AlignItems(ui.Start).Padding(10, 12).Radius(12).Gap(6).FocusRing(false).Label(l.Text)
+				line := ui.ButtonBase(c.Key(i)).Column().AlignItems(align).Padding(10, 12).Radius(12).Gap(6).FocusRing(false).Label(l.Text)
 				on := i == cur
 				alpha := float32(0.28)
 				if on {
@@ -728,12 +743,13 @@ func (a *app) timedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Line, 
 				line.Children(func() {
 					// The line fades as a pose, in frames that only paint, rather
 					// than building the view at the display's rate as it does.
-					text := ui.Column(c).AlignItems(ui.Start).Gap(6)
+					text := ui.Column(c).FillWidth().AlignItems(align).Gap(6)
 					text.AnimatePose(ui.Pose{Fade: 1 - alpha}, ui.Animation{Duration: 380 * time.Millisecond})
 					text.Children(func() {
-						if on && len(l.Words) > 0 {
+						showOriginal := !a.settings.Lyrics.HideOriginal || (l.Translation == "" && l.Romanization == "")
+						if showOriginal && on && len(l.Words) > 0 && a.settings.Lyrics.WordHighlight {
 							// The line sung lights up word by word as it is sung.
-							ui.RichText(c.Key("words")).Lang(lang).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).Children(func() {
+							ui.RichText(c.Key("words")).FillWidth().TextAlign(align).Lang(lang).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).Children(func() {
 								for wi, wd := range l.Words {
 									lit := clamp01(float32((pos - wd.Start).Seconds() / max(0.05, (wd.End-wd.Start).Seconds())))
 									ui.Text(c.Key(wi), wd.Text).TextColor(white.Alpha(0.38 + 0.62*lit))
@@ -743,16 +759,19 @@ func (a *app) timedLines(c *ui.Context, scroll ui.Element, lines []lyrics.Line, 
 								// Words brighten smoothly enough at 25 frames a second.
 								c.After(40 * time.Millisecond)
 							}
-						} else {
-							ui.Text(c, l.Text).Lang(lang).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).TextColor(white)
+						} else if showOriginal {
+							ui.Text(c, l.Text).FillWidth().TextAlign(align).Lang(lang).FontSize(st.size).FontWeight(st.weight).LineHeight(st.lineHeight).LetterSpacing(-0.4).TextColor(white)
 						}
 						if l.Translation != "" {
-							ui.Text(c, l.Translation).FontSize(17).FontWeight(600).TextColor(white.Alpha(0.7))
+							ui.Text(c, l.Translation).FillWidth().TextAlign(align).FontSize(17).FontWeight(600).TextColor(white.Alpha(0.7))
+						}
+						if l.Romanization != "" {
+							ui.Text(c, l.Romanization).FillWidth().TextAlign(align).FontSize(15).TextColor(white.Alpha(0.58))
 						}
 					})
 				})
 				if line.Clicked() {
-					pl.Seek(l.At)
+					pl.Seek(l.At + time.Duration(a.pl.LyricsRecord().OffsetMS)*time.Millisecond)
 				}
 				if on {
 					active = line

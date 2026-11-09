@@ -14,6 +14,7 @@ import (
 
 	"mygo-music/internal/i18n"
 	"mygo-music/internal/local"
+	"mygo-music/internal/lyrics"
 	"mygo-music/internal/music"
 	"mygo-music/internal/player"
 	"mygo-music/internal/plugin"
@@ -134,6 +135,7 @@ type app struct {
 	lyricGlide  lyricGlide
 	lyricAt     int
 	lyricTrack  string
+	lyricTools  lyricToolsState
 	queueList   ui.ListState
 	queueAt     int // the row of the queue pane last scrolled to, -1 while it is hidden
 	comments    commentState
@@ -354,6 +356,9 @@ func Run() error {
 		a.pl.Quality = func() string { return a.settings.Quality }
 		a.pl.Normalize = func() bool { return a.settings.Normalize }
 		a.pl.Cache = newSongCache(a.settings.CacheMB)
+		if dir, err := mygo.App.Path(mygo.PathUserData); err == nil {
+			a.pl.LyricsStore = &lyrics.Store{Dir: filepath.Join(dir, "lyrics")}
+		}
 		a.pl.Changed = func() {
 			a.keepSession()
 			a.syncCaptions()

@@ -21,6 +21,9 @@ func (a *app) view(c *ui.Context) {
 	c.SetTheme(&t)
 
 	a.shortcuts(c)
+	if tr := a.pl.Current(); tr != nil && tr.ShowID == "" {
+		a.ensureLyricTools(tr)
+	}
 
 	// Back to the front, after the listener may have changed their
 	// playlists elsewhere.
@@ -34,7 +37,7 @@ func (a *app) view(c *ui.Context) {
 		c.Root().Background(ui.Transparent)
 	}
 	root := ui.Box(c).Fill()
-	if !c.Focused(a.searchBox) && !c.Focused(a.playlistSearchBox) {
+	if !a.lyricTools.open && !c.Focused(a.searchBox) && !c.Focused(a.playlistSearchBox) {
 		// Space plays and pauses wherever the focus is, as in Music. On
 		// the container around everything, it comes before a button the
 		// pointer focused, which would take Space as a click; on the
@@ -75,6 +78,7 @@ func (a *app) view(c *ui.Context) {
 	a.signInDialog(c, a.pal, false)
 	a.playlistNameDialog(c)
 	a.deletePlaylistDialog(c)
+	a.lyricToolsDialog(c)
 	if a.toast != "" {
 		c.Toast(a.toast)
 		a.toast = ""

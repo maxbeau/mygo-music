@@ -94,12 +94,13 @@ func spaceWords(shapes []wordShape, widths []float32, gap float32) {
 func (a *app) stage(c *ui.Context, tr *music.Track, accent ui.Color) {
 	pl := a.pl
 	lines, loaded := pl.Lyrics()
+	lines = a.lyricLines()
 	w, h := c.Size()
-	f := min(64, max(36, w*0.045))
+	f := min(64, max(36, w*0.045)) * float32(a.lyricFontSize()) / 30
 	box := ui.Box(c.Key("stage")).Grow(1)
 	a.npRise(box, 1)
 	if text := pl.PlainLyrics(); len(lines) == 0 && text != "" {
-		box.Children(func() { a.plainLyrics(c, text, 28) })
+		box.Children(func() { a.plainLyrics(c, a.lyricPlainText(), float32(a.lyricFontSize())-2) })
 		return
 	}
 	// In a quiet part a hot comment takes the middle, the lyrics nearly
@@ -118,7 +119,7 @@ func (a *app) stage(c *ui.Context, tr *music.Track, accent ui.Color) {
 		})
 		return
 	}
-	pos := pl.Position()
+	pos := a.lyricPosition()
 	cur := lyrics.Index(lines, pos)
 	// Under a hot comment there is nothing to move: the quiet asks for
 	// the frame where it ends.
@@ -158,6 +159,9 @@ func (a *app) stage(c *ui.Context, tr *music.Track, accent ui.Color) {
 			ui.Column(c).Absolute().Left(0).Right(0).Bottom(24).AlignItems(ui.Center).Gap(8).PassThrough().Children(func() {
 				if cur >= 0 && lines[cur].Translation != "" {
 					ui.Text(c.Key("translation"), lines[cur].Translation).Lang(c.Locale()).FontSize(18).FontWeight(600).TextColor(white.Alpha(0.72)).TextAlign(ui.Center)
+				}
+				if cur >= 0 && lines[cur].Romanization != "" {
+					ui.Text(c.Key("romanization"), lines[cur].Romanization).FontSize(15).TextColor(white.Alpha(0.55)).TextAlign(ui.Center)
 				}
 				if cur+1 < len(lines) {
 					ui.Text(c.Key("next"), lines[cur+1].Text).FontSize(14).TextColor(white.Alpha(0.32)).TextAlign(ui.Center).SingleLine()
@@ -204,12 +208,26 @@ func stageNextFrame(c *ui.Context, lines []lyrics.Line, cur int, pos, lead time.
 // stageLine shows the words of l as they are at pos, the whole line at
 // opacity fade.
 func (a *app) stageLine(c *ui.Context, l *lyrics.Line, pos time.Duration, f, w, h, fade float32, accent ui.Color) {
+	if !a.settings.Lyrics.WordHighlight || a.settings.Lyrics.HideOriginal && (l.Translation != "" || l.Romanization != "") {
+		text := l.Text
+		if a.settings.Lyrics.HideOriginal && (l.Translation != "" || l.Romanization != "") {
+			if l.Translation != "" {
+				text = l.Translation
+			} else {
+				text = l.Romanization
+			}
+		}
+		ui.Box(c.Key(l.At)).Absolute().Top(0).Left(0).Right(0).Bottom(0).PaddingX(60).Center().Opacity(fade).PassThrough().Children(func() {
+			ui.Text(c, text).FontSize(f).FontWeight(800).TextAlign(ui.Center).TextColor(white)
+		})
+		return
+	}
 	switch a.settings.StageStyle {
 	case "partita":
 		a.partitaLine(c, l, pos, f, h, fade, accent)
 		return
 	case "tilt":
-		tiltLine(c, l, pos, w, fade, accent, a.settings.StageSparks)
+		tiltLine(c, l, pos, w, fade, float32(a.lyricFontSize())/30, accent, a.settings.StageSparks)
 		return
 	}
 	seed := float64(l.At / time.Millisecond)

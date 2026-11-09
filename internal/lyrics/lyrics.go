@@ -15,11 +15,12 @@ import (
 // A Line is a line of timed lyrics, with its translation if any, and
 // when each of its words is sung.
 type Line struct {
-	At          time.Duration
-	End         time.Duration
-	Text        string
-	Translation string
-	Words       []Word
+	At           time.Duration
+	End          time.Duration
+	Text         string
+	Translation  string
+	Romanization string
+	Words        []Word
 }
 
 // A Word is a word of a line, or a character of Chinese or Japanese,

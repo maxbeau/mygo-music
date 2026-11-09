@@ -41,7 +41,8 @@ type Player struct {
 	// the settings say.
 	Normalize func() bool
 	// Cache keeps the songs played, if set.
-	Cache *Cache
+	Cache       *Cache
+	LyricsStore *lyrics.Store
 	// Changed, if set, hears that what plays, where it is or whether it
 	// plays changed.
 	Changed func()
@@ -77,12 +78,15 @@ type Player struct {
 	err     string
 	gen     int // counts loads, to drop the results of stale ones
 
-	lyrics       []lyrics.Line
-	lyricsLoaded bool
-	lyricsText   string
-	lyricsErr    string
-	instrumental bool
-	lyricsGen    int
+	lyrics         []lyrics.Line
+	lyricsLoaded   bool
+	lyricsText     string
+	lyricsErr      string
+	instrumental   bool
+	lyricsGen      int
+	lyricsRecord   lyrics.Record
+	lyricsRevision uint64
+	lyricsForce    bool
 
 	// pending holds a seek asked for while the track loads.
 	pending time.Duration
@@ -458,12 +462,42 @@ func (p *Player) PlainLyrics() string { return p.lyricsText }
 func (p *Player) LyricsError() string { return p.lyricsErr }
 func (p *Player) Instrumental() bool  { return p.instrumental }
 
+func (p *Player) LyricsRecord() lyrics.Record { return p.lyricsRecord }
+func (p *Player) LyricsRevision() uint64      { return p.lyricsRevision }
+
+// ApplyLyrics changes only the document, invalidating older lyric requests.
+func (p *Player) ApplyLyrics(record lyrics.Record) error {
+	if p.track == nil {
+		return nil
+	}
+	if err := p.LyricsStore.Save(*p.track, record); err != nil {
+		return err
+	}
+	p.lyricsGen++
+	p.setLyricsRecord(record, nil)
+	p.sync()
+	return nil
+}
+
+func (p *Player) setLyricsRecord(record lyrics.Record, err error) {
+	p.lyricsRecord = record
+	p.lyricsRevision++
+	p.lyrics = lyrics.FromSource(&record.Data)
+	p.lyricsText, p.instrumental = record.Data.Text, record.Data.Instrumental
+	p.lyricsErr = ""
+	if err != nil {
+		p.lyricsErr = err.Error()
+	}
+	p.lyricsLoaded = true
+}
+
 // RetryLyrics reloads only the words, leaving the current audio untouched.
 func (p *Player) RetryLyrics() {
 	if p.track == nil {
 		return
 	}
 	p.lyricsLoaded, p.lyricsErr = false, ""
+	p.lyricsForce = true
 	p.loadLyrics(p.gen, p.sourceOf(p.track), *p.track)
 }
 
@@ -771,6 +805,7 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 	p.awaiting = false
 	p.lyrics, p.lyricsLoaded = nil, false
 	p.lyricsText, p.lyricsErr, p.instrumental = "", "", false
+	p.lyricsRecord = lyrics.Record{}
 	p.pending = from
 	p.recorded = ""
 	p.announce(&t, nil)
@@ -861,30 +896,31 @@ func (p *Player) loadCover(gen int, t *music.Track) {
 func (p *Player) loadLyrics(gen int, src music.Source, t music.Track) {
 	p.lyricsGen++
 	request := p.lyricsGen
+	force := p.lyricsForce
+	p.lyricsForce = false
 	go func() {
-		var lines []lyrics.Line
+		record := p.LyricsStore.Read(t)
 		var data *music.Lyrics
 		var err error
-		if src != nil && src.Can("lyrics") {
+		if lyrics.Usable(&record.Data) && (!force || record.Manual) {
+			data = &record.Data
+		} else if src != nil && src.Can("lyrics") {
 			if richer, ok := src.(music.TrackLyricsSource); ok {
 				data, err = richer.LyricsForTrack(t)
 			} else {
 				data, err = src.Lyrics(t.ID)
 			}
-			if err == nil {
-				lines = lyrics.FromSource(data)
-			}
+		}
+		if err == nil && data != nil {
+			record.Data = *data
+			record.Updated = time.Now()
 		}
 		p.post(func() {
 			if gen == p.gen && request == p.lyricsGen {
-				p.lyrics = lines
-				p.lyricsLoaded = true
-				p.lyricsText, p.lyricsErr, p.instrumental = "", "", false
-				if err != nil {
-					p.lyricsErr = err.Error()
-				} else if data != nil {
-					p.lyricsText, p.instrumental = data.Text, data.Instrumental
+				if err == nil && lyrics.Usable(&record.Data) {
+					p.LyricsStore.Save(t, record)
 				}
+				p.setLyricsRecord(record, err)
 			}
 		})
 	}()

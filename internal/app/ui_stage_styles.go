@@ -357,8 +357,8 @@ func splitParts(words []lyrics.Word, units [][2]int, n int) []tiltPart {
 // the accent, its characters up and down by turns. The whole line is at
 // opacity fade, rising a little as it goes; with sparks, each word throws
 // them as it is sung.
-func tiltLine(c *ui.Context, l *lyrics.Line, pos time.Duration, w, fade float32, accent ui.Color, sparks bool) {
-	size := min(w*0.06875, 90)
+func tiltLine(c *ui.Context, l *lyrics.Line, pos time.Duration, w, fade, fontScale float32, accent ui.Color, sparks bool) {
+	size := min(w*0.06875, 90) * fontScale
 	avail := w * 0.85
 	style := func(p tiltPart) (weight int, spacing float32) {
 		if p.lean {

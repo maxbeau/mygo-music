@@ -9,11 +9,13 @@ import (
 	"github.com/egoist/mygo"
 
 	"mygo-music/internal/i18n"
+	"mygo-music/internal/lyrics"
 )
 
 // settings are the listener's choices, kept in settings.json in the user
 // data directory.
 type settings struct {
+	Lyrics lyricPreferences `json:"lyrics,omitempty"`
 	// Language is what the app speaks: i18n.English or i18n.Chinese, or
 	// i18n.System for the system's.
 	Language string `json:"language"`
@@ -91,8 +93,20 @@ type settings struct {
 	path string // where they were loaded from, and are saved to
 }
 
+type lyricPreferences struct {
+	HideOriginal    bool                     `json:"hideOriginal,omitempty"`
+	HideTranslation bool                     `json:"hideTranslation,omitempty"`
+	Romanization    bool                     `json:"romanization,omitempty"`
+	WordHighlight   bool                     `json:"wordHighlight"`
+	FontSize        int                      `json:"fontSize,omitempty"`
+	Alignment       string                   `json:"alignment,omitempty"`
+	AutoTranslate   bool                     `json:"autoTranslate,omitempty"`
+	Translation     lyrics.TranslationConfig `json:"translation"`
+	KeyReady        bool                     `json:"keyReady,omitempty"`
+}
+
 func defaultSettings() settings {
-	return settings{Language: i18n.System, NotchActivity: true, Quality: "high", Appearance: "system", Volume: 0.8, Normalize: true, AppIcon: "dock-and-menubar", CacheMB: 2048}
+	return settings{Lyrics: lyricPreferences{WordHighlight: true, FontSize: 30, Translation: lyrics.TranslationConfig{Provider: "compatible", Target: "zh-CN"}}, Language: i18n.System, NotchActivity: true, Quality: "high", Appearance: "system", Volume: 0.8, Normalize: true, AppIcon: "dock-and-menubar", CacheMB: 2048}
 }
 
 func settingsPath() (string, error) {

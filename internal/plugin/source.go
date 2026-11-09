@@ -294,10 +294,24 @@ func (p *Plugin) Lyrics(id string) (*music.Lyrics, error) {
 
 func (p *Plugin) LyricsForTrack(track music.Track) (*music.Lyrics, error) {
 	var l music.Lyrics
-	if err := p.call("lyrics", map[string]any{"id": track.ID, "track": track}, &l); err != nil {
+	if err := p.call("lyrics", map[string]any{"id": track.ID, "track": track, "refresh": true}, &l); err != nil {
 		return nil, err
 	}
 	return &l, nil
+}
+
+func (p *Plugin) SearchLyrics(track music.Track, title, artist, provider string) ([]music.LyricCandidate, error) {
+	var candidates []music.LyricCandidate
+	err := p.call("searchLyrics", map[string]any{"track": track, "title": title, "artist": artist, "provider": provider}, &candidates)
+	return candidates, err
+}
+
+func (p *Plugin) LyricCandidate(id string) (*music.Lyrics, error) {
+	var data music.Lyrics
+	if err := p.call("lyricCandidate", map[string]string{"id": id}, &data); err != nil {
+		return nil, err
+	}
+	return &data, nil
 }
 
 func (p *Plugin) Stream(id, quality string) (*music.Stream, error) {

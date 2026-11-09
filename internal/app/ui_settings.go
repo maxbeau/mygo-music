@@ -376,6 +376,7 @@ func (a *app) settingsSections(c *ui.Context, p palette) []settingsSection {
 	})
 
 	add("plugins", T("Plugins"), iconPlug, func(row settingsRow, block settingsBlock) { a.sourceSettings(c, row, block, p) })
+	add("lyrics", T("Lyrics"), iconNote, func(row settingsRow, block settingsBlock) { a.lyricsSettings(c, row, block, p) })
 
 	// Only on macOS, the one with a notch player.
 	if a.notch != nil {

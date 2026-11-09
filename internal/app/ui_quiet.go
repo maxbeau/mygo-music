@@ -90,7 +90,7 @@ func (a *app) quietComment(tr *music.Track, lines []lyrics.Line, loaded bool, po
 // shows now.
 func (a *app) quietShown(c *ui.Context, el ui.Element, tr *music.Track, lines []lyrics.Line, loaded bool) (float32, bool) {
 	pl := a.pl
-	cm, next := a.quietComment(tr, lines, loaded, pl.Position())
+	cm, next := a.quietComment(tr, lines, loaded, a.lyricPosition())
 	if pl.Playing() && next > 0 {
 		c.After(next + 20*time.Millisecond)
 	}
