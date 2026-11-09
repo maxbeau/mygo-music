@@ -207,3 +207,8 @@ To test the companion YouTube plugin in the real runtime, without network access
 ```bash
 YOUTUBE_PLUGIN_DIR=/absolute/path/to/youtube-plugin go test ./internal/plugin -run TestYouTubePluginRuntime -v
 ```
+
+For a local installation that uses the normal app name, identifier and data,
+build with `MYGO_LOCAL_BUILD=1` instead of `MYGO_PREVIEW=1`. Both development
+build modes omit the upstream release feed, so an upstream update cannot
+replace local feature work.

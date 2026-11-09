@@ -2,6 +2,8 @@
 // Bun, of the command running. The development app (`mygo dev`) opens links of a
 // scheme of its own, for the installed app to keep mygo-music:// links.
 const preview = process.env.MYGO_PREVIEW === "1";
+// A locally installed development build keeps the normal app identity and data.
+const localBuild = process.env.MYGO_LOCAL_BUILD === "1";
 
 export default ({ command }: { command: string }) => ({
   name: preview ? "MyGo Music Preview" : "MyGo Music",
@@ -10,7 +12,7 @@ export default ({ command }: { command: string }) => ({
   version: "0.1.23",
   out: "build",
   urlSchemes: [preview ? "mygo-music-preview" : command === "dev" ? "mygo-music-dev" : "mygo-music"],
-  updates: preview ? undefined : {
+  updates: preview || localBuild ? undefined : {
     publicKey: "WzJsOGNIuf6mcEqo5ff8jub+NoQQOEk4JXreLPYjgyQ=",
     github: "egoist/mygo-music",
   },
