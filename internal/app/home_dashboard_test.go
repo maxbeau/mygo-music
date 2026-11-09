@@ -100,8 +100,8 @@ func TestHomeSurpriseStartsSeededRadio(t *testing.T) {
 		t.Fatal(seed)
 	}
 	until(t, ch, func() bool { return a.pl.Radio() != "" })
-	if a.pl.Current().ID != "next" {
-		t.Fatal("radio did not start")
+	if a.pl.Current().ID != seed {
+		t.Fatal("radio skipped its seed")
 	}
 }
 

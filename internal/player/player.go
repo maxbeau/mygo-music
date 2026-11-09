@@ -63,6 +63,7 @@ type Player struct {
 	radioGen int  // counts radios, to drop what an old one gives
 	feeding  bool // the feed is asked
 	awaiting bool // at the queue's end, for what the feed gives
+	tuning   bool // preparing a song radio without reloading its seed
 
 	track   *music.Track
 	out     *audio.Player
@@ -170,6 +171,13 @@ func (p *Player) ended() {
 		p.out.Play()
 		return
 	}
+	if p.tuning {
+		p.pending = p.Duration()
+		p.stopForFeed()
+		p.awaiting, p.loading = true, true
+		p.sync()
+		return
+	}
 	if p.at+1 >= len(p.order) && p.feed != nil {
 		p.awaitFeed()
 		return
@@ -239,6 +247,65 @@ func (p *Player) PlayRadio(name string, tracks []music.Track, feed func(got func
 	p.AttachRadio(name, feed)
 }
 
+// StartSongRadio keeps the seed's audio, or plays the chosen seed first. Only
+// a successful preparation replaces what follows it; ready runs on the main thread.
+func (p *Player) StartSongRadio(seed music.Track, prepare func(ready func(string, []music.Track, func(func([]music.Track))))) {
+	if p.track == nil || p.track.Source != seed.Source || p.track.ID != seed.ID {
+		p.PlayTrack([]music.Track{seed}, 0)
+	}
+	waiting := p.awaiting
+	p.endRadio()
+	p.tuning, p.awaiting = true, waiting
+	if waiting {
+		p.loading = true
+	}
+	gen, radioGen := p.gen, p.radioGen
+	prepare(func(name string, tracks []music.Track, feed func(func([]music.Track))) {
+		if !p.tuning || gen != p.gen || radioGen != p.radioGen {
+			return
+		}
+		p.tuning = false
+		waiting, playing := p.awaiting, p.playing
+		if name == "" || len(tracks) == 0 {
+			if waiting {
+				p.awaiting, p.loading, p.playing = false, false, false
+			}
+			p.sync()
+			return
+		}
+		p.trimAfterCurrent()
+		p.appendTracks(tracks)
+		p.dropAhead()
+		p.AttachRadio(name, feed)
+		if waiting && p.at+1 < len(p.order) {
+			p.loadSkipping(p.at+1, 0, forward, playing, 0)
+		} else if waiting && p.feed != nil {
+			p.awaiting, p.loading = true, true
+			p.refill()
+		} else if waiting {
+			p.awaiting, p.loading, p.playing = false, false, false
+		} else if p.out != nil {
+			p.getAhead(p.quality())
+		}
+		p.sync()
+	})
+}
+
+// trimAfterCurrent retains history in actual play order, including shuffle.
+func (p *Player) trimAfterCurrent() {
+	if p.at < 0 || p.at >= len(p.order) {
+		return
+	}
+	kept := make([]music.Track, p.at+1)
+	for i, k := range p.order[:p.at+1] {
+		kept[i] = p.queue[k]
+	}
+	p.queue, p.order = kept, make([]int, len(kept))
+	for i := range p.order {
+		p.order[i] = i
+	}
+}
+
 // AttachRadio makes the queue the radio name's, which feed goes on with,
 // as after restoring a session that played it.
 func (p *Player) AttachRadio(name string, feed func(got func([]music.Track))) {
@@ -250,24 +317,16 @@ func (p *Player) AttachRadio(name string, feed func(got func([]music.Track))) {
 // EndRadio stops the radio playing: the song playing plays on, but the
 // songs the radio queued after it go, and it adds no more.
 func (p *Player) EndRadio() {
-	if p.radio == "" && p.feed == nil {
+	if p.radio == "" && p.feed == nil && !p.tuning {
 		return
 	}
 	awaiting := p.awaiting
 	p.endRadio()
-	if p.at >= 0 && p.at+1 < len(p.order) {
-		kept := make([]music.Track, p.at+1)
-		for i, k := range p.order[:p.at+1] {
-			kept[i] = p.queue[k]
-		}
-		p.queue, p.order = kept, make([]int, len(kept))
-		for i := range p.order {
-			p.order[i] = i
-		}
-	}
+	p.trimAfterCurrent()
+	p.dropAhead()
 	if awaiting {
 		// At its end, waiting for more: nothing plays on.
-		p.playing = false
+		p.playing, p.loading = false, false
 		p.sync()
 	}
 }
@@ -275,6 +334,7 @@ func (p *Player) EndRadio() {
 func (p *Player) endRadio() {
 	p.radioGen++
 	p.radio, p.feed, p.feeding, p.awaiting = "", nil, false, false
+	p.tuning = false
 }
 
 // Radio returns the name of the radio playing, or "".
@@ -297,10 +357,10 @@ func (p *Player) refill() {
 		case !p.awaiting:
 		case p.at+1 < len(p.order):
 			p.awaiting = false
-			p.load(p.at + 1)
+			p.loadSkipping(p.at+1, 0, forward, p.playing, 0)
 		default:
 			// The radio has nothing more: it stops at its end.
-			p.awaiting, p.playing = false, false
+			p.awaiting, p.playing, p.loading = false, false, false
 			p.err = i18n.T("The station has nothing more right now")
 			p.sync()
 		}
@@ -410,6 +470,13 @@ func (p *Player) Next() {
 	}
 	at := p.at + 1
 	if at >= len(p.order) {
+		if p.tuning {
+			p.pending = p.Position()
+			p.stopForFeed()
+			p.awaiting, p.loading, p.playing = true, true, true
+			p.sync()
+			return
+		}
 		if p.feed != nil {
 			p.stopForFeed()
 			p.awaitFeed()
@@ -671,6 +738,7 @@ func (p *Player) record() {
 // loadSkipping loads the track at order[at], to play or not, from from,
 // skipping those that cannot play the way dir goes: skipped of them so far.
 func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duration) {
+	p.tuning = false
 	t := p.queue[p.order[at]]
 	src := p.sourceOf(&t)
 	if was := p.remote; was != nil && was.started && p.playing && (src == nil || src.Info().ID != was.src.Info().ID) {
@@ -696,10 +764,7 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 		p.loadRemote(gen, src, at, skipped, dir, play, from)
 		return
 	}
-	quality := music.Qualities[len(music.Qualities)/2]
-	if p.Quality != nil {
-		quality = p.Quality()
-	}
+	quality := p.quality()
 	pre := p.takeAhead(t, quality)
 	go func() {
 		info, s, err := p.open(src, t, quality, pre)
@@ -746,6 +811,13 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 			p.getAhead(quality)
 		})
 	}()
+}
+
+func (p *Player) quality() string {
+	if p.Quality != nil {
+		return p.Quality()
+	}
+	return music.Qualities[len(music.Qualities)/2]
 }
 
 // loadCover shows the system the cover of t, once it has it.

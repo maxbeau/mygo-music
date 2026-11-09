@@ -190,6 +190,15 @@ AGPL-3.0. See [LICENSE](LICENSE).
 
 Sources may implement the optional `radio` and `related` exports. A source with both `radio` and `stationNext` gets a **Start Song Radio** menu action and a **Start Artist Radio** button; `related` gets a **Related Music** menu action. These are optional Go interfaces, so existing sources keep their `Source` implementation.
 
+Song radio retains the current song's audio, position and paused state. When
+another song is selected, that song starts first while recommendations load.
+The first successful batch replaces only the queue after the seed; history is
+retained in play order. A natural completion during preparation waits for the
+batch. New playback, leaving radio or another radio request invalidates old
+responses. The source's recommendation batches should omit the seed; the host
+also removes it from the initial batch. Artist and ordinary station playback
+continue to start from their returned queue.
+
 A `Station` may set `public: true` to allow anonymous starts; by default the previous sign-in requirement applies. The source remains responsible for returning `signIn` when the service needs it. Station IDs must survive a session restore or carry enough information to reconstruct their endpoint.
 
 `artist` may additionally return `sections: Section[]`. When present, the artist page preserves the source's grouped discography and `morePage` links. All tracks in those sections are stamped with their source as on other browse pages. `Track.playlistItemId` optionally identifies a duplicate song's occurrence for reordering.

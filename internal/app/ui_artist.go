@@ -229,7 +229,7 @@ func (a *app) artistHeader(c *ui.Context, d *artistData) {
 				}
 				if lib.can("radio") && lib.can("stationNext") {
 					if pillButton(c.Key("radio"), iconRadio, T("Start Artist Radio"), p.hover.Over(p.bg), p.text).Clicked() {
-						a.startSeedRadio(lib, "artist", ar.ID)
+						a.startArtistRadio(lib, ar.ID)
 					}
 				}
 				a.pinButton(c.Key("pin"), artistPin(*ar))

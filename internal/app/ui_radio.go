@@ -120,10 +120,10 @@ func (a *app) exitRadio() {
 	a.radioRequest++
 	a.radioStarting = ""
 	name := a.pl.Radio()
+	a.pl.EndRadio()
 	if name == "" {
 		return
 	}
-	a.pl.EndRadio()
 	a.toast = Tf("Left %s", radioLabel(name))
 }
 

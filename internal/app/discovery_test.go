@@ -2,6 +2,7 @@ package app
 
 import (
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 	"mygo-music/internal/music"
@@ -34,13 +35,92 @@ func TestSongMenuStartsSeedRadio(t *testing.T) {
 		t.Fatal(got)
 	}
 	until(t, ch, func() bool { return a.pl.Radio() != "" })
-	if a.pl.Current().ID != "a" || a.signIn.open {
+	if a.pl.Current().ID != "seed" || a.signIn.open || len(a.pl.Queue()) != 4 {
 		t.Fatalf("current %+v, sign-in %v", a.pl.Current(), a.signIn.open)
 	}
 }
 
+// Starting radio from the current song's real menu preserves progress and removes its old future.
+func TestCurrentSongMenuKeepsProgress(t *testing.T) {
+	a, ch := radioApp()
+	tracks := sourced(song("seed", "Seed"), song("old", "Old"))
+	a.pl.Cue(tracks)
+	a.pl.Hold(time.Minute)
+	version := a.pl.QueueVersion()
+	a.playlists["p"] = &music.Playlist{ID: "p", Tracks: tracks}
+	a.route = route{page: pagePlaylist, src: "fake", id: "p"}
+	fake(a).radio = func(string, string) (*music.Station, error) {
+		return &music.Station{ID: "session", Public: true}, nil
+	}
+	fake(a).stationNext = func(string) ([]music.Track, error) {
+		return sourced(song("seed", "Seed"), song("a", "A"), song("b", "B"), song("c", "C")), nil
+	}
+	tt := ui.NewTester(a.view, 1200, 800)
+	tt.Frame()
+	if err := tt.RightClick("Seed"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("Start Song Radio"); err != nil {
+		t.Fatal(err)
+	}
+	until(t, ch, func() bool { return a.pl.Radio() != "" })
+	if a.pl.Current().ID != "seed" || a.pl.Position() != time.Minute || a.pl.QueueVersion() != version || !a.pl.Playing() {
+		t.Fatal("song menu restarted current playback")
+	}
+	if q := a.pl.Queue(); len(q) != 4 || q[1].ID != "a" {
+		t.Fatalf("seed repeated or old playlist retained: %+v", q)
+	}
+}
+
+// Choosing another song starts that song before a slow radio lookup answers.
+func TestSongRadioPlaysSeedBeforeLookup(t *testing.T) {
+	a, ch := radioApp()
+	a.pl.Cue(sourced(song("old", "Old")))
+	entered, release := make(chan bool, 1), make(chan bool)
+	fake(a).radio = func(string, string) (*music.Station, error) {
+		entered <- true
+		<-release
+		return nil, music.ErrUnavailable
+	}
+	a.startSongRadio(sourced(song("seed", "Seed"))[0])
+	wait(t, entered, "lookup")
+	if a.pl.Current().ID != "seed" || a.pl.Position() != 0 {
+		close(release)
+		t.Fatal("seed waited for radio lookup")
+	}
+	close(release)
+	until(t, ch, func() bool { return a.toast != "" })
+	if a.pl.Current().ID != "seed" || a.pl.Radio() != "" {
+		t.Fatal("failed lookup changed the selected song")
+	}
+}
+
+// An initial song-radio batch cannot overwrite a track selected while it loaded.
+func TestSongRadioDropsStaleInitialBatch(t *testing.T) {
+	a, ch := radioApp()
+	finished := false
+	a.postFn = func(fn func()) { ch <- func() { fn(); finished = true } }
+	asked, release := make(chan bool, 1), make(chan bool)
+	fake(a).radio = func(string, string) (*music.Station, error) {
+		return &music.Station{ID: "session", Public: true}, nil
+	}
+	fake(a).stationNext = func(string) ([]music.Track, error) {
+		asked <- true
+		<-release
+		return sourced(song("stale", "Stale")), nil
+	}
+	a.startSongRadio(sourced(song("seed", "Seed"))[0])
+	wait(t, asked, "first batch")
+	a.pl.PlayTrack(sourced(song("chosen", "Chosen")), 0)
+	close(release)
+	until(t, ch, func() bool { return finished })
+	if a.pl.Current().ID != "chosen" || a.pl.Radio() != "" || len(a.pl.Queue()) != 1 {
+		t.Fatal("stale recommendations replaced playback")
+	}
+}
+
 // A delayed seed lookup cannot replace a song the listener chose afterwards.
-func TestSeedRadioDropsStaleLookup(t *testing.T) {
+func TestArtistRadioDropsStaleLookup(t *testing.T) {
 	a, ch := radioApp()
 	entered, release := make(chan bool, 1), make(chan bool)
 	fake(a).radio = func(kind, id string) (*music.Station, error) {
@@ -49,7 +129,7 @@ func TestSeedRadioDropsStaleLookup(t *testing.T) {
 		return &music.Station{ID: id, Public: true}, nil
 	}
 	fake(a).stationNext = func(string) ([]music.Track, error) { t.Error("stale lookup fetched a station"); return nil, nil }
-	a.startSeedRadio(a.library, "track", "old")
+	a.startArtistRadio(a.library, "old")
 	wait(t, entered, "lookup")
 	a.pl.PlayQueue(sourced(song("chosen", "Chosen")), 0)
 	close(release)

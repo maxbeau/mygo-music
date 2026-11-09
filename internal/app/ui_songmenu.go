@@ -28,7 +28,7 @@ func (a *app) songItems(tr *music.Track, pid string) func(m *ui.Menu) {
 		lib := a.trackLib(tr)
 		if tr.ShowID == "" && lib.can("radio") && lib.can("stationNext") {
 			if m.Item(T("Start Song Radio")).Chosen() {
-				a.startSeedRadio(lib, "track", tr.ID)
+				a.startSongRadio(*tr)
 			}
 		}
 		if tr.ShowID == "" && lib.can("related") {

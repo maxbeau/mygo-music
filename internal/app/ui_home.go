@@ -154,7 +154,7 @@ func (a *app) homeDashboardHeader(c *ui.Context, quick []music.Track) {
 		ui.Box(c).Grow(1).Shrink(1).MinWidth(0).Children(func() { a.homeHello(c, c.Now()) })
 		if len(quick) > 0 && a.can("radio") && a.can("stationNext") {
 			if pillButton(c.Key("surprise"), iconShuffle, T("Surprise Me"), a.pal.accent, a.pal.onAccent).Clicked() {
-				a.startSeedRadio(a.library, "track", quick[rand.IntN(len(quick))].ID)
+				a.startSongRadio(quick[rand.IntN(len(quick))])
 			}
 		}
 	})
