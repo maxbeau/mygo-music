@@ -71,6 +71,10 @@ func (a *app) radioFeed(name string) func(got func([]music.Track)) {
 				if err != nil {
 					a.problem(lib, err, T("The station didn't answer"))
 				}
+				if a.libOf(src) != lib {
+					got(nil)
+					return
+				}
 				got(tracks)
 			})
 		}()
@@ -79,7 +83,9 @@ func (a *app) radioFeed(name string) func(got func([]music.Track)) {
 
 // playStation plays a station, or goes on playing it.
 func (a *app) playStation(lib *library, st *music.Station) {
-	if lib.signedOut() {
+	a.radioRequest++
+	version, request := a.pl.QueueVersion(), a.radioRequest
+	if !st.Public && lib.signedOut() {
 		a.promptSignIn(lib)
 		return
 	}
@@ -93,7 +99,11 @@ func (a *app) playStation(lib *library, st *music.Station) {
 	a.radioStarting = name
 	feed := a.radioFeed(name)
 	feed(func(tracks []music.Track) {
-		if a.radioStarting != name {
+		if a.radioStarting != name || a.radioRequest != request {
+			return
+		}
+		if a.pl.QueueVersion() != version {
+			a.radioStarting = ""
 			return
 		}
 		a.radioStarting = ""
@@ -107,6 +117,8 @@ func (a *app) playStation(lib *library, st *music.Station) {
 
 // exitRadio stops the radio playing, but not the song it plays.
 func (a *app) exitRadio() {
+	a.radioRequest++
+	a.radioStarting = ""
 	name := a.pl.Radio()
 	if name == "" {
 		return

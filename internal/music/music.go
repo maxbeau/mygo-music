@@ -33,11 +33,13 @@ type Track struct {
 	ID string `json:"id"`
 	// Source is the ID of the source the track came from, which it plays
 	// through. The source's own answers leave it out; it's filled in for them.
-	Source   string   `json:"source,omitempty"`
-	Name     string   `json:"name"`
-	Artists  []Artist `json:"artists,omitempty"`
-	Album    Album    `json:"album"`
-	Duration int64    `json:"duration"` // milliseconds
+	Source string `json:"source,omitempty"`
+	// PlaylistItemID identifies this occurrence when a playlist repeats a song.
+	PlaylistItemID string   `json:"playlistItemId,omitempty"`
+	Name           string   `json:"name"`
+	Artists        []Artist `json:"artists,omitempty"`
+	Album          Album    `json:"album"`
+	Duration       int64    `json:"duration"` // milliseconds
 	// URL is the track's page at its source, for sharing.
 	URL string `json:"url,omitempty"`
 	// Unavailable says the listener can't play it, for a source that knows.
@@ -76,9 +78,11 @@ type Playlist struct {
 
 // ArtistPage is what an artist's page shows.
 type ArtistPage struct {
-	Artist Artist  `json:"artist"`
-	Tracks []Track `json:"tracks,omitempty"`
-	Albums []Album `json:"albums,omitempty"`
+	// Sections preserves discography groups and their links to all results.
+	Sections []Section `json:"sections,omitempty"`
+	Artist   Artist    `json:"artist"`
+	Tracks   []Track   `json:"tracks,omitempty"`
+	Albums   []Album   `json:"albums,omitempty"`
 }
 
 // AlbumPage is what an album's page shows.
@@ -159,6 +163,9 @@ type ShowPage struct {
 
 // Station is an endless radio: it goes on with what StationNext gives.
 type Station struct {
+	// Public allows starting without signing in. Sources still return ErrSignIn
+	// if the service requires an account. Existing stations keep their behavior.
+	Public      bool   `json:"public,omitempty"`
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
@@ -469,4 +476,15 @@ type Source interface {
 	RemoteState() (*RemoteState, error)
 	RemoteDevices() ([]Device, error)
 	RemoteUse(deviceID string) error
+}
+
+// RadioSource optionally starts a station from a track or artist. Keeping it
+// separate lets existing sources keep their implementation of Source.
+type RadioSource interface {
+	Radio(kind, id string) (*Station, error)
+}
+
+// RelatedSource optionally provides a track's related music as a browse page.
+type RelatedSource interface {
+	Related(id string) (*Browse, error)
 }

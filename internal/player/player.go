@@ -45,6 +45,9 @@ type Player struct {
 	// Changed, if set, hears that what plays, where it is or whether it
 	// plays changed.
 	Changed func()
+	// Autoplay optionally continues a naturally finished queue. It returns
+	// whether a request was started; ready must run on the main thread.
+	Autoplay func(track music.Track, ready func(name string, tracks []music.Track, feed func(func([]music.Track)))) bool
 
 	queue   []music.Track
 	order   []int // the queue's indices in play order: shuffled or not
@@ -64,7 +67,7 @@ type Player struct {
 	track   *music.Track
 	out     *audio.Player
 	stream  stream
-	watch   *watched // stream, as out plays it
+	watch   *watched      // stream, as out plays it
 	info    *music.Stream // what the current track streams
 	fade    fader
 	gain    float64 // the current track's normalizing gain
@@ -172,6 +175,9 @@ func (p *Player) ended() {
 		return
 	}
 	if p.at+1 >= len(p.order) && p.repeat == RepeatOff {
+		if p.startAutoplay() {
+			return
+		}
 		p.playing = false
 		p.sync()
 		return
@@ -493,6 +499,10 @@ const seekGap = 30 * time.Millisecond
 // which the audio player fades over a few milliseconds, rather than
 // cutting from one sound to the other with a click.
 func (p *Player) Seek(t time.Duration) {
+	if p.loading && p.awaiting && p.feed == nil {
+		p.loadSkipping(p.at, 0, stay, p.playing, t)
+		return
+	}
 	if p.remote != nil && p.remote.started {
 		p.remoteSeek(t)
 		return
@@ -955,4 +965,41 @@ func (p *Player) OpenAudio() (Audio, error) {
 	}
 	dl, _ := p.stream.source()
 	return openShared(dl, p.track.Duration)
+}
+
+// QueueVersion changes when another playback request supersedes this queue.
+func (p *Player) QueueVersion() int { return p.gen }
+
+// startAutoplay keeps history and ignores responses after a seek, jump or a
+// replacement queue. Pausing while recommendations load stays paused.
+func (p *Player) startAutoplay() bool {
+	if p.Autoplay == nil || p.track == nil {
+		return false
+	}
+	track := *p.track
+	p.stopForFeed()
+	gen := p.gen
+	p.loading, p.awaiting = true, true
+	accepted := p.Autoplay(track, func(name string, tracks []music.Track, feed func(func([]music.Track))) {
+		if p.gen != gen {
+			return
+		}
+		p.loading, p.awaiting = false, false
+		next := p.at + 1
+		if name != "" && p.repeat == RepeatOff {
+			p.appendTracks(tracks)
+		}
+		if name == "" || len(p.order) <= next || p.repeat != RepeatOff {
+			p.playing = false
+			p.sync()
+			return
+		}
+		playing := p.playing
+		p.AttachRadio(name, feed)
+		p.loadSkipping(next, 0, forward, playing, 0)
+	})
+	if !accepted {
+		p.loading, p.awaiting = false, false
+	}
+	return accepted
 }

@@ -158,6 +158,10 @@ func (a *app) artistPage(c *ui.Context) {
 		return
 	}
 	header := func(c *ui.Context) { a.artistHeader(c, d) }
+	if len(d.page.Sections) > 0 {
+		a.browseRows(c, &music.Browse{Sections: d.page.Sections}, "artist", header)
+		return
+	}
 	tab := d.tab
 	switch {
 	case len(d.page.Tracks) == 0:
@@ -223,6 +227,11 @@ func (a *app) artistHeader(c *ui.Context, d *artistData) {
 				if len(songs) > 0 {
 					a.playButtons(c, songs)
 				}
+				if lib.can("radio") && lib.can("stationNext") {
+					if pillButton(c.Key("radio"), iconRadio, T("Start Artist Radio"), p.hover.Over(p.bg), p.text).Clicked() {
+						a.startSeedRadio(lib, "artist", ar.ID)
+					}
+				}
 				if a.can("followArtist") {
 					icon, label := iconPlus, T("Follow")
 					if ar.Following {
@@ -235,6 +244,9 @@ func (a *app) artistHeader(c *ui.Context, d *artistData) {
 			})
 		})
 	})
+	if len(d.page.Sections) > 0 {
+		return
+	}
 	title := T("Songs")
 	if d.tab == artistAlbums || len(songs) == 0 {
 		title = T("Albums")

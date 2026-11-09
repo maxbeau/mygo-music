@@ -399,6 +399,11 @@ func (a *app) settingsSections(c *ui.Context, p palette) []settingsSection {
 	}
 
 	add("playback", T("Playback"), iconVolume, func(row settingsRow, block settingsBlock) {
+		row(T("Autoplay Related Music"), T("Continue with similar songs when a queue ends; repeat modes take priority"), func() {
+			if ui.Switch(c.Key("autoplay"), &s.Autoplay).Label(T("Autoplay Related Music")).Changed() {
+				a.changed()
+			}
+		})
 		row(T("Quality"), T("What's asked of plugins that have a choice, from the next song on"), func() {
 			labels := make([]string, len(qualityLevels))
 			at := 1

@@ -93,6 +93,8 @@ type fakeSource struct {
 	subscribe   func(id string, on bool) error
 	stations    func() ([]music.Station, error)
 	stationNext func(id string) ([]music.Track, error)
+	radio       func(kind, id string) (*music.Station, error)
+	related     func(id string) (*music.Browse, error)
 	comments    func(track string, offset int) (*music.CommentPage, error)
 	likeComment func(track, comment string, on bool) error
 	postComment func(track, text string) (*music.Comment, error)
@@ -478,4 +480,17 @@ func giveCover(a *app, url string, img *image.RGBA) {
 	bd := *art
 	bd.backdrop = ui.NewBitmap(blurImage(img))
 	a.art.art[sized(url, 600)+"#backdrop"] = &bd
+}
+
+func (s *fakeSource) Radio(kind, id string) (*music.Station, error) {
+	if s.radio == nil {
+		return nil, music.ErrUnsupported
+	}
+	return s.radio(kind, id)
+}
+func (s *fakeSource) Related(id string) (*music.Browse, error) {
+	if s.related == nil {
+		return nil, music.ErrUnsupported
+	}
+	return s.related(id)
 }

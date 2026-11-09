@@ -1,14 +1,16 @@
 // The configuration of the app, which `mygo dev` and `mygo build` evaluate with
 // Bun, of the command running. The development app (`mygo dev`) opens links of a
 // scheme of its own, for the installed app to keep mygo-music:// links.
+const preview = process.env.MYGO_PREVIEW === "1";
+
 export default ({ command }: { command: string }) => ({
-  name: "MyGo Music",
-  identifier: "dev.egoist.music",
-  slug: "mygo-music",
-  version: "0.1.22",
+  name: preview ? "MyGo Music Preview" : "MyGo Music",
+  identifier: preview ? "dev.maxbeau.music.preview" : "dev.egoist.music",
+  slug: preview ? "mygo-music-preview" : "mygo-music",
+  version: "0.1.23",
   out: "build",
-  urlSchemes: [command === "dev" ? "mygo-music-dev" : "mygo-music"],
-  updates: {
+  urlSchemes: [preview ? "mygo-music-preview" : command === "dev" ? "mygo-music-dev" : "mygo-music"],
+  updates: preview ? undefined : {
     publicKey: "WzJsOGNIuf6mcEqo5ff8jub+NoQQOEk4JXreLPYjgyQ=",
     github: "egoist/mygo-music",
   },

@@ -2,6 +2,13 @@ package i18n
 
 // zhCN is the app's text in Simplified Chinese, by its English.
 var zhCN = map[string]string{
+	"Start Song Radio":       "开启歌曲电台",
+	"Start Artist Radio":     "开启歌手电台",
+	"Related Music":          "相似推荐",
+	"Autoplay Related Music": "播完自动推荐",
+	"Continue with similar songs when a queue ends; repeat modes take priority": "队列播完后继续播放相似歌曲；优先使用循环播放设置",
+	"Couldn't start this radio": "无法开启这个电台",
+
 	"%.1f GB used":                 "已用 %.1f GB",
 	"%d MB used":                   "已用 %d MB",
 	"%d albums":                    "%d 张专辑",

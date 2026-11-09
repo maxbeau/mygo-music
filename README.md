@@ -96,6 +96,8 @@ Export a function for each thing the plugin does. Each takes one object of param
 | `show` | `{id, offset}` | `{show, episodes, more}` |
 | `stations` | | `[Station]` |
 | `stationNext` | `{id}` | `[Track]` |
+| `radio` (optional) | `{kind, id}`, where `kind` is `track` or `artist` | `Station` with a source-defined session ID |
+| `related` (optional) | `{id}` | `Browse` with related music |
 | `comments` | `{trackId, offset}` | `{comments, total, more}` |
 | `likeComment` | `{trackId, commentId, on}` | |
 | `postComment` | `{trackId, text}` | `Comment` |
@@ -183,3 +185,25 @@ Everything else takes a permission in `plugin.json`:
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE).
+
+## Seeded radio and discovery
+
+Sources may implement the optional `radio` and `related` exports. A source with both `radio` and `stationNext` gets a **Start Song Radio** menu action and a **Start Artist Radio** button; `related` gets a **Related Music** menu action. These are optional Go interfaces, so existing sources keep their `Source` implementation.
+
+A `Station` may set `public: true` to allow anonymous starts; by default the previous sign-in requirement applies. The source remains responsible for returning `signIn` when the service needs it. Station IDs must survive a session restore or carry enough information to reconstruct their endpoint.
+
+`artist` may additionally return `sections: Section[]`. When present, the artist page preserves the source's grouped discography and `morePage` links. All tracks in those sections are stamped with their source as on other browse pages. `Track.playlistItemId` optionally identifies a duplicate song's occurrence for reordering.
+
+**Settings > Playback > Autoplay Related Music** continues a naturally completed queue with a seeded radio when enabled. It is off by default, gives repeat modes priority, and excludes podcast episodes. Manual Next retains its existing behavior. A later playback request or seek invalidates an old recommendation response; pausing while it loads stays paused.
+
+For a separate local preview app with its own identifier and no configured release feed:
+
+```bash
+MYGO_PREVIEW=1 go tool mygo build -sign - -skip-notarize -skip-dmg
+```
+
+To test the companion YouTube plugin in the real runtime, without network access:
+
+```bash
+YOUTUBE_PLUGIN_DIR=/absolute/path/to/youtube-plugin go test ./internal/plugin -run TestYouTubePluginRuntime -v
+```

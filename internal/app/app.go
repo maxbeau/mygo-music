@@ -136,6 +136,7 @@ type app struct {
 	comments    commentState
 	tabCount    rollState // the count on the comments' tab, as it rolls
 
+	radioRequest  uint64 // rejects an old seed request after a different start
 	radioStarting string // the radio asked for its first songs, or ""
 	stationAt     int    // which of a few stations their switch has chosen
 
@@ -346,6 +347,7 @@ func Run() error {
 		a.pl.Quiet = func(fn func()) { mygo.RunOnMain(fn) }
 		a.pl.Source = a.sourceByID
 		a.pl.Failed = a.sourceFailed
+		a.pl.Autoplay = a.autoplayRadio
 		a.pl.Quality = func() string { return a.settings.Quality }
 		a.pl.Normalize = func() bool { return a.settings.Normalize }
 		a.pl.Cache = newSongCache(a.settings.CacheMB)

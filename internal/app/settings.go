@@ -22,6 +22,8 @@ type settings struct {
 	// Captions writes down episodes as they play, for their captions, on this
 	// device, once the listener has the model.
 	Captions bool `json:"captions"`
+	// Autoplay continues a finished queue with a radio, when its source supports it.
+	Autoplay bool `json:"autoplay"`
 	// DisabledPlugins are the IDs of the plugins turned off. All are on until
 	// then, the built-in one included.
 	DisabledPlugins []string `json:"disabledPlugins,omitempty"`

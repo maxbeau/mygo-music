@@ -34,7 +34,7 @@ var capabilities = []string{
 	"createPlaylist", "renamePlaylist", "deletePlaylist", "addToPlaylist", "removeFromPlaylist", "movePlaylistTrack", "savePlaylist",
 	"followArtist", "saveAlbum", "savedAlbums",
 	"shows", "show", "subscribeShow",
-	"stations", "stationNext",
+	"stations", "stationNext", "radio", "related",
 	"comments", "likeComment", "postComment",
 	"lyrics", "stream",
 }

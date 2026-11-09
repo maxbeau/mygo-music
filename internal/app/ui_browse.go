@@ -41,7 +41,7 @@ func (a *app) loadBrowse(lib *library, page string, again bool) {
 	}
 	d.loading, d.err = true, ""
 	go func() {
-		b, err := answered(lib.src.Browse(page))
+		b, err := answered(relatedBrowse(lib.src, page))
 		a.post(func() {
 			d.loading = false
 			if err != nil {

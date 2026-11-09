@@ -321,7 +321,7 @@ func (a *app) moveTrack(lib *library, pid string, tr *music.Track, by int) {
 	if pl == nil {
 		return
 	}
-	from := slices.IndexFunc(pl.Tracks, func(t music.Track) bool { return t.ID == tr.ID })
+	from := slices.IndexFunc(pl.Tracks, func(t music.Track) bool { return samePlaylistTrack(t, *tr) })
 	to := from + by
 	if from < 0 || to < 0 || to >= len(pl.Tracks) {
 		return
@@ -382,7 +382,7 @@ func (a *app) playlistItems(m *ui.Menu, tr *music.Track, pid string) {
 		a.removeFrom(lib, pid, tr)
 	}
 	if lib.can("movePlaylistTrack") && mine != nil {
-		at := slices.IndexFunc(mine.Tracks, func(t music.Track) bool { return t.ID == tr.ID })
+		at := slices.IndexFunc(mine.Tracks, func(t music.Track) bool { return samePlaylistTrack(t, *tr) })
 		if at > 0 && m.Item(T("Move Up")).Chosen() {
 			a.moveTrack(lib, pid, tr, -1)
 		}
@@ -450,4 +450,12 @@ func (a *app) deletePlaylistDialog(c *ui.Context) {
 			}
 		})
 	})
+}
+
+// A repeated song's own occurrence is moved, instead of its first occurrence.
+func samePlaylistTrack(a, b music.Track) bool {
+	if b.PlaylistItemID != "" {
+		return a.ID == b.ID && a.PlaylistItemID == b.PlaylistItemID
+	}
+	return a.ID == b.ID
 }

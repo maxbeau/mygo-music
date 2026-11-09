@@ -26,6 +26,16 @@ func (a *app) songMenu(c *ui.Context, tr *music.Track, size float32, color ui.Co
 func (a *app) songItems(tr *music.Track, pid string) func(m *ui.Menu) {
 	return func(m *ui.Menu) {
 		lib := a.trackLib(tr)
+		if tr.ShowID == "" && lib.can("radio") && lib.can("stationNext") {
+			if m.Item(T("Start Song Radio")).Chosen() {
+				a.startSeedRadio(lib, "track", tr.ID)
+			}
+		}
+		if tr.ShowID == "" && lib.can("related") {
+			if m.Item(T("Related Music")).Chosen() {
+				a.openRelated(lib, tr.ID)
+			}
+		}
 		if m.Item(T("Copy Title")).Chosen() {
 			copyText(tr.Name)
 		}

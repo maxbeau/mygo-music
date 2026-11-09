@@ -121,6 +121,9 @@ func (p *Plugin) Artist(id string) (*music.ArtistPage, error) {
 		return nil, err
 	}
 	p.stamp(a.Tracks)
+	b := music.Browse{Sections: a.Sections}
+	p.stampBrowse(&b)
+	a.Sections = b.Sections
 	return &a, nil
 }
 
@@ -337,8 +340,10 @@ func (p *Plugin) RemoteUse(deviceID string) error {
 }
 
 var (
-	_ music.Source   = (*Plugin)(nil)
-	_ music.Recorder = (*Plugin)(nil)
+	_ music.Source        = (*Plugin)(nil)
+	_ music.Recorder      = (*Plugin)(nil)
+	_ music.RadioSource   = (*Plugin)(nil)
+	_ music.RelatedSource = (*Plugin)(nil)
 )
 
 // hasHeader reports whether headers has name, in any case.
@@ -349,4 +354,22 @@ func hasHeader(headers map[string]string, name string) bool {
 		}
 	}
 	return false
+}
+
+// Radio asks the plugin to create a station from a specific seed.
+func (p *Plugin) Radio(kind, id string) (*music.Station, error) {
+	var st music.Station
+	if err := p.call("radio", map[string]string{"kind": kind, "id": id}, &st); err != nil {
+		return nil, err
+	}
+	return &st, nil
+}
+
+func (p *Plugin) Related(id string) (*music.Browse, error) {
+	var b music.Browse
+	if err := p.call("related", map[string]string{"id": id}, &b); err != nil {
+		return nil, err
+	}
+	p.stampBrowse(&b)
+	return &b, nil
 }
