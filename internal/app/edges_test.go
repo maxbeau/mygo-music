@@ -57,6 +57,50 @@ func TestShortPageHasNoEdges(t *testing.T) {
 	}
 }
 
+// Home's virtual list must frost the player even before its last row is built.
+func TestDiscoveryHomeScrollEdges(t *testing.T) {
+	a := dashboardApp()
+	tracks := framesTracks(a)
+	a.home.Sections = nil
+	for i := range 24 {
+		album := tracks[i%len(tracks)].Album
+		a.home.Sections = append(a.home.Sections, music.Section{
+			Title: fmt.Sprintf("Shelf %d", i), Entries: []music.BrowseEntry{{Album: &album}},
+		})
+	}
+	tt := ui.NewTester(a.view, 1180, 780)
+	for _, step := range []struct {
+		name        string
+		scroll      float32
+		top, bottom bool
+	}{
+		{"top", 0, false, true},
+		{"middle", 700, true, true},
+		{"end", 100000, true, false},
+		{"top-again", -100000, false, true},
+	} {
+		if step.scroll != 0 {
+			tt.Scroll(800, 400, 0, step.scroll)
+		}
+		settled(tt)
+		if a.underTop != step.top || a.underBottom != step.bottom {
+			t.Errorf("%s: edges top=%v bottom=%v, want top=%v bottom=%v", step.name, a.underTop, a.underBottom, step.top, step.bottom)
+		}
+	}
+}
+
+// A discovery homepage that fits still leaves both scroll edges hidden.
+func TestShortDiscoveryHomeHasNoEdges(t *testing.T) {
+	a := dashboardApp()
+	album := framesTracks(a)[0].Album
+	a.home.Sections[0].Entries = []music.BrowseEntry{{Album: &album}}
+	tt := ui.NewTester(a.view, 1180, 780)
+	settled(tt)
+	if a.underTop || a.underBottom {
+		t.Fatalf("edges on a short discovery homepage: top=%v bottom=%v", a.underTop, a.underBottom)
+	}
+}
+
 // Opening or closing the account menu leaves the player's edge as it was:
 // the content's box had no key, so the menu coming or going made it anew,
 // and the edge faded in again from nothing, showing the page bare under

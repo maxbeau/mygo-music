@@ -101,6 +101,9 @@ func (a *app) discoveryHome(c *ui.Context) {
 		}
 	}
 	top, bottom := a.insets(c)
+	// Offscreen rows are not built, including their edge marks. Assume content
+	// continues under both bars until a visible start/end mark says otherwise.
+	a.underTop, a.underBottom = true, true
 	ui.List(c.Key(a.route), &a.trackList, len(blocks), func(i int) {
 		if i == 0 {
 			a.startMark(c)
