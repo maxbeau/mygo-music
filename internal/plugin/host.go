@@ -27,6 +27,7 @@ import (
 
 	"mygo-music/internal/i18n"
 	"mygo-music/internal/music"
+	"mygo-music/internal/netpolicy"
 )
 
 // openURL opens a page in the listener's browser. The app sets it.
@@ -86,6 +87,13 @@ func (p *Plugin) installHost(v *vm) error {
 		return err
 	}
 	return rt.SetGlobal("host", map[string]any{
+		"secrets": p.secretHost(v),
+		"proxy": moejs.NativeFunc(func(_ *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
+			if moejs.Arg(args, 1).String() == "http" {
+				return moejs.String(netpolicy.HTTPHelperProxy(moejs.Arg(args, 0).String())), nil
+			}
+			return moejs.String(netpolicy.ProxyURL(moejs.Arg(args, 0).String())), nil
+		}),
 		"platform": runtime.GOOS,
 		"arch":     runtime.GOARCH,
 		"dir":      p.dir,
@@ -357,6 +365,7 @@ func (p *Plugin) spawn(v *vm) native {
 		}
 		cmd := exec.Command(command, cmdArgs...)
 		cmd.Dir = p.dir
+		cmd.Env = netpolicy.Env()
 		hideConsole(cmd)
 		stderr := &tailWriter{to: logWriter{p.manifest.ID}}
 		cmd.Stderr = stderr

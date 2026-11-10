@@ -111,7 +111,7 @@ func (d *download) run(ctx context.Context, url string, headers map[string]strin
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		finish(errors.New(res.Status))
+		finish(music.HTTPError(res))
 		return
 	}
 	buf := make([]byte, 64<<10)
@@ -121,6 +121,10 @@ func (d *download) run(ctx context.Context, url string, headers map[string]strin
 			d.write(buf[:n])
 		}
 		if err == io.EOF {
+			if d.size > 0 && d.n < d.size {
+				finish(io.ErrUnexpectedEOF)
+				return
+			}
 			// Whole if as long as promised: the cache's.
 			if d.part != "" && (d.size <= 0 || d.n == d.size) {
 				d.hand()

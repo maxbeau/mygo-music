@@ -29,6 +29,8 @@ type lyricToolsState struct {
 	list                               ui.ListState
 	gen                                uint64
 	active, hash, autoKey, romanBusy   string
+	sourceAsked                        string
+	sourceBusy                         bool
 	revision                           uint64
 	translating                        bool
 	cancel                             context.CancelFunc
@@ -71,6 +73,8 @@ func (a *app) ensureLyricTools(tr *music.Track) {
 		d.translating = false
 		d.romanBusy = ""
 		d.autoKey = ""
+		d.sourceAsked = ""
+		d.sourceBusy = false
 		if d.open && !sameTrack(&d.track, tr) {
 			d.open = false
 			d.busy = false
@@ -84,7 +88,12 @@ func (a *app) ensureLyricTools(tr *music.Track) {
 		a.romanizeLyrics()
 	}
 	s := a.settings.Lyrics
-	if s.AutoTranslate && s.KeyReady && len(lyrics.TextLines(record.Data)) > 0 {
+	sourceKey := hash + "\x00" + s.Translation.Target
+	if s.SourceTranslation && !record.Manual && !sourceTranslationFor(record, s.Translation.Target) && d.sourceAsked != sourceKey {
+		d.sourceAsked = sourceKey
+		a.fetchSourceTranslation(*tr, hash)
+	}
+	if !d.sourceBusy && s.AutoTranslate && !sourceTranslationFor(record, s.Translation.Target) && s.KeyReady && len(lyrics.TextLines(record.Data)) > 0 {
 		key := lyrics.TranslationHashKey(hash, s.Translation)
 		if d.autoKey != key && !d.translating && record.Translations[key] == nil {
 			d.autoKey = key
@@ -101,6 +110,9 @@ func (a *app) showRomanization(r lyrics.Record) bool {
 }
 
 func (a *app) applyLyricRecord(r lyrics.Record) bool {
+	if r.Manual && lyrics.ContentHash(r.Data) != lyrics.ContentHash(a.pl.LyricsRecord().Data) {
+		r.SourceTranslationLanguage = ""
+	}
 	if err := a.pl.ApplyLyrics(r); err != nil {
 		a.toast = T("Couldn't save lyrics")
 		return false
@@ -114,6 +126,13 @@ func (a *app) translateLyrics(refresh bool) {
 		return
 	}
 	r := a.pl.LyricsRecord()
+	if !refresh && sourceTranslationFor(r, a.settings.Lyrics.Translation.Target) {
+		r.MachineTranslation = false
+		a.applyLyricRecord(r)
+		a.settings.Lyrics.HideTranslation = false
+		a.changed()
+		return
+	}
 	lines := lyrics.TextLines(r.Data)
 	if len(lines) == 0 {
 		return
@@ -161,6 +180,7 @@ func (a *app) translateLyrics(refresh bool) {
 				r.Translations = map[string][]string{}
 			}
 			r.Translations[key] = translated
+			r.MachineTranslation = true
 			a.applyLyricRecord(r)
 			a.settings.Lyrics.HideTranslation = false
 			a.changed()
@@ -219,7 +239,10 @@ func (a *app) lyricLines() []lyrics.Line {
 	hash := a.lyricDocumentHash()
 	translated := r.Translations[lyrics.TranslationHashKey(hash, a.settings.Lyrics.Translation)]
 	for i := range out {
-		if i < len(translated) {
+		if r.SourceTranslationLanguage != "" && !sourceTranslationFor(r, a.settings.Lyrics.Translation.Target) {
+			out[i].Translation = ""
+		}
+		if i < len(translated) && (r.MachineTranslation || out[i].Translation == "") {
 			out[i].Translation = translated[i]
 		}
 		if a.settings.Lyrics.HideTranslation {
@@ -227,6 +250,14 @@ func (a *app) lyricLines() []lyrics.Line {
 		}
 		if a.showRomanization(r) && r.RomanizedHash == hash && i < len(r.Romanized) {
 			out[i].Romanization = r.Romanized[i]
+		}
+	}
+	for i := range out {
+		out[i].Text = lyrics.DisplayScript(out[i].Text, a.settings.Lyrics.Script)
+		out[i].Translation = lyrics.DisplayScript(out[i].Translation, a.settings.Lyrics.Script)
+		out[i].Words = append([]lyrics.Word(nil), out[i].Words...)
+		for j := range out[i].Words {
+			out[i].Words[j].Text = lyrics.DisplayScript(out[i].Words[j].Text, a.settings.Lyrics.Script)
 		}
 	}
 	return out
@@ -251,7 +282,7 @@ func (a *app) lyricPlainText() string {
 		}
 		rows = append(rows, strings.Join(sub, "\n"))
 	}
-	return strings.Join(rows, "\n\n")
+	return lyrics.DisplayScript(strings.Join(rows, "\n\n"), a.settings.Lyrics.Script)
 }
 
 func (a *app) openLyricTools(mode string) {
@@ -446,4 +477,44 @@ func (a *app) canSearchLyrics(track *music.Track) bool {
 	}
 	_, ok := lib.src.(music.LyricsSearchSource)
 	return ok
+}
+
+func (a *app) fetchSourceTranslation(track music.Track, hash string) {
+	lib := a.libOf(track.Source)
+	if lib == nil || !lib.can("lyricsTranslation") {
+		return
+	}
+	source, ok := lib.src.(music.LyricsTranslationSource)
+	if !ok {
+		return
+	}
+	language := a.settings.Lyrics.Translation.Target
+	key := hash + "\x00" + language
+	a.lyricTools.sourceBusy = true
+	go func() {
+		data, err := source.LyricsTranslation(track, language)
+		a.post(func() {
+			if !a.lyricCurrent(track, hash) || a.lyricTools.sourceAsked != key {
+				return
+			}
+			a.lyricTools.sourceBusy = false
+			if err != nil || data == nil {
+				return
+			}
+			r := a.pl.LyricsRecord()
+			if r.Manual || !a.settings.Lyrics.SourceTranslation {
+				return
+			}
+			if merged, ok := lyrics.MergeSourceTranslation(r.Data, *data); ok {
+				r.Data = merged
+				r.SourceTranslationLanguage = language
+				r.MachineTranslation = false
+				a.applyLyricRecord(r)
+			}
+		})
+	}()
+}
+
+func sourceTranslationFor(r lyrics.Record, language string) bool {
+	return lyrics.HasSourceTranslation(r.Data) && (r.SourceTranslationLanguage == "" || strings.EqualFold(r.SourceTranslationLanguage, language))
 }

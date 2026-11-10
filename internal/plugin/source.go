@@ -408,3 +408,15 @@ func (p *Plugin) Related(id string) (*music.Browse, error) {
 	p.stampBrowse(&b)
 	return &b, nil
 }
+
+func (p *Plugin) Diagnostics() ([]music.DiagnosticCheck, error) {
+	var checks []music.DiagnosticCheck
+	err := p.call("diagnostics", nil, &checks)
+	return checks, err
+}
+
+func (p *Plugin) LyricsTranslation(track music.Track, language string) (*music.Lyrics, error) {
+	var data music.Lyrics
+	err := p.call("lyricsTranslation", map[string]any{"track": track, "language": language}, &data)
+	return &data, err
+}

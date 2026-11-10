@@ -1,6 +1,6 @@
 # MyGo Music
 
-A native desktop music player written in Go with [MyGo](https://github.com/egoist/mygo), no WebView. It plays your local files out of the box, and everything else comes from plugins.
+A native desktop music player written in Go with [MyGo](https://github.com/egoist/mygo), with native UI; isolated WebViews are used only for service sign-in. It plays your local files out of the box, and everything else comes from plugins.
 
 ## Features
 
@@ -278,3 +278,44 @@ The declaration belongs to the playing track's source, independently of the
 library currently being browsed. Changing filters discards previous candidates
 and ignores any older response. Sources without `searchLyrics` have no search
 entry; generic lyric editing and display remain available.
+
+## Network, diagnostics and media tools (MyGo 0.1.31)
+
+Settings > Network & Diagnostics selects system/environment, direct, or a custom
+HTTP/HTTPS/SOCKS5 proxy. HTTP requests and spawned helpers share the route;
+loopback playback stays direct. On macOS 14+, sign-in WebViews use the
+same explicit policy. Other platforms use their system WebView proxy. Static
+system proxies and environment exclusions are supported; PAC scripts are not
+interpreted by the Go HTTP client. Apply changes before opening a new WebView.
+
+Transient playback outages keep the song, position, pause state and radio queue.
+Retries are bounded and honor server cooldowns. Connection checks and redacted
+JSON report export live on the same settings page. Logs rotate locally at 1 MiB;
+reports contain versions, check results, proxy configuration and a bounded log
+excerpt, without cookies, API keys or signed URL parameters.
+
+`host.proxy(url, kind?)` returns the effective proxy (empty means direct). Pass
+`"http"` for an HTTP CONNECT bridge when a helper cannot use SOCKS5.
+`host.secrets.get/set/remove(key)` stores plugin JSON credentials encrypted with
+AES-GCM under a per-plugin key kept in the system credential store. Write
+successfully before removing old plaintext storage; never log credential values.
+
+Optional exports:
+
+- `diagnostics()` returns `{name, value, ok}[]` with non-sensitive check results.
+- `lyricsTranslation({track, language})` returns original timed lyrics plus their
+  source translation. The host verifies text/timing alignment before merging,
+  preserving word timing and manual selections. Existing provider translations
+  take priority over automatic machine translation. macOS can display simplified
+  or traditional Chinese without changing stored originals.
+
+A plugin may reject with `code: "network"` or `"rateLimited"` and optional
+`retryAfter` in milliseconds (bounded to 15 minutes). Authentication and permanent
+format errors are not automatically retried.
+
+Settings > Global Shortcuts supports play/pause, next, previous and show-player
+bindings. Conflicts restore the working bindings. In Now Playing, `[` / `]`
+shift lyrics by 500 ms without seeking; editors retain those keys as text input.
+
+These additions adapt useful ideas from [MySpotify](https://github.com/margbug01/MySpotify)
+while keeping service APIs and provider matching inside plugins.

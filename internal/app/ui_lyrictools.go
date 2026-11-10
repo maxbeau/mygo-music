@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -197,6 +198,26 @@ func (a *app) lyricToolsDialog(c *ui.Context) {
 
 func (a *app) lyricsSettings(c *ui.Context, row settingsRow, block settingsBlock, p palette) {
 	s := &a.settings.Lyrics
+	row(T("Fetch Source Translations"), T("Prefer matched translations supplied by lyric providers"), func() {
+		if ui.Switch(c.Key("source-translation"), &s.SourceTranslation).Label(T("Fetch Source Translations")).Changed() {
+			a.changed()
+			a.lyricTools.sourceAsked = ""
+		}
+	})
+	if runtime.GOOS == "darwin" {
+		row(T("Chinese Lyrics"), "", func() {
+			at := 0
+			for i, v := range []string{"", "simplified", "traditional"} {
+				if s.Script == v {
+					at = i
+				}
+			}
+			if i, ok := choice(c, "lyric-script", T("Chinese Lyrics"), []string{"Original Script", "Simplified Chinese", "Traditional Chinese"}, at); ok {
+				s.Script = []string{"", "simplified", "traditional"}[i]
+				a.changed()
+			}
+		})
+	}
 	d := &a.lyricTools
 	row(T("Show Original Lyrics"), "", func() {
 		on := !s.HideOriginal

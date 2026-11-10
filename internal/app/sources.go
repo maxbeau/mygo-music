@@ -36,7 +36,7 @@ var capabilities = []string{
 	"shows", "show", "subscribeShow",
 	"stations", "stationNext", "radio", "related",
 	"comments", "likeComment", "postComment",
-	"lyrics", "searchLyrics", "stream",
+	"lyrics", "lyricsTranslation", "searchLyrics", "diagnostics", "video", "stream",
 }
 
 func probeCaps(src music.Source) map[string]bool {

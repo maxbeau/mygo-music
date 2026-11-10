@@ -47,7 +47,7 @@ func (a *app) webSignIn(o plugin.WebSignIn) (string, error) {
 	}
 	win := mygo.NewWindow(mygo.WindowOptions{
 		Title:     Tf("Sign in to %s", o.Name),
-		URL:       o.URL,
+		URL:       "about:blank",
 		Width:     480,
 		Height:    680,
 		MinWidth:  360,
@@ -55,6 +55,11 @@ func (a *app) webSignIn(o plugin.WebSignIn) (string, error) {
 		Parent:    over,
 		Page:      mygo.PageOptions{Session: session, UserAgent: o.UserAgent},
 	})
+	if err := configureLoginProxy(win); err != nil {
+		win.Close()
+		return "", err
+	}
+	win.Page().LoadURL(o.URL)
 	closed := make(chan struct{})
 	win.OnClosed(func() { close(closed) })
 	a.post(func() {

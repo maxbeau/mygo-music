@@ -9,7 +9,7 @@ export default ({ command }: { command: string }) => ({
   name: preview ? "MyGo Music Preview" : "MyGo Music",
   identifier: preview ? "dev.maxbeau.music.preview" : "dev.egoist.music",
   slug: preview ? "mygo-music-preview" : "mygo-music",
-  version: "0.1.30",
+  version: "0.1.31",
   out: "build",
   urlSchemes: [preview ? "mygo-music-preview" : command === "dev" ? "mygo-music-dev" : "mygo-music"],
   updates: preview || localBuild ? undefined : {

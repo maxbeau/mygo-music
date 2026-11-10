@@ -66,17 +66,21 @@ type Player struct {
 	awaiting bool // at the queue's end, for what the feed gives
 	tuning   bool // preparing a song radio without reloading its seed
 
-	track   *music.Track
-	out     *audio.Player
-	stream  stream
-	watch   *watched      // stream, as out plays it
-	info    *music.Stream // what the current track streams
-	fade    fader
-	gain    float64 // the current track's normalizing gain
-	loading bool
-	playing bool // what the listener wants: false while paused
-	err     string
-	gen     int // counts loads, to drop the results of stale ones
+	track                      *music.Track
+	out                        *audio.Player
+	stream                     stream
+	watch                      *watched      // stream, as out plays it
+	info                       *music.Stream // what the current track streams
+	fade                       fader
+	gain                       float64 // the current track's normalizing gain
+	loading                    bool
+	playing                    bool // what the listener wants: false while paused
+	err                        string
+	retryCount                 int
+	retryPending, retryLimited bool
+	retryAt                    time.Time
+	networkOffline             bool
+	gen                        int // counts loads, to drop the results of stale ones
 
 	lyrics         []lyrics.Line
 	lyricsLoaded   bool
@@ -99,6 +103,8 @@ type Player struct {
 	// remote is set while the current track is a PlaybackRemote source's,
 	// which plays it elsewhere: see remote.go.
 	remote *remote
+	// mediaGen invalidates decoder callbacks without changing the radio queue generation.
+	mediaGen int
 	// after runs fn after d, on another goroutine; tests replace it.
 	after func(d time.Duration, fn func())
 	now   func() time.Time
@@ -440,7 +446,7 @@ func (p *Player) Playing() bool { return p.playing }
 // Loading reports whether the current track is on its way: loading, or
 // waiting for the next of its bytes, after a seek past what has come in.
 func (p *Player) Loading() bool {
-	return p.loading || p.awaiting || p.watch != nil && p.watch.starved()
+	return p.retryPending || p.loading || p.awaiting || p.watch != nil && p.watch.starved()
 }
 
 // Ready reports whether the current track has loaded, to play.
@@ -566,6 +572,14 @@ func (p *Player) Jump(i int) {
 
 // TogglePlay pauses, fading out, or plays, fading in.
 func (p *Player) TogglePlay() {
+	if p.retryPending {
+		p.playing = !p.playing
+		if p.playing {
+			p.retryNow()
+		}
+		p.sync()
+		return
+	}
 	if p.remote != nil && p.remote.started {
 		p.remoteToggle()
 		return
@@ -729,6 +743,7 @@ func (p *Player) Levels() ([Bands]float32, bool) {
 }
 
 func (p *Player) stop() {
+	p.mediaGen++
 	if out := p.out; out != nil {
 		// Paused first, it fades out over a few milliseconds, rather than
 		// stopping with a click.
@@ -788,8 +803,13 @@ func (p *Player) record() {
 
 // loadSkipping loads the track at order[at], to play or not, from from,
 // skipping those that cannot play the way dir goes: skipped of them so far.
-func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duration) {
-	p.tuning = false
+func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duration, reload ...bool) {
+	same := len(reload) > 0 && reload[0]
+	recorded := p.recorded
+	if !same {
+		p.tuning = false
+	}
+	p.retryCount, p.retryPending, p.retryLimited = 0, false, false
 	t := p.queue[p.order[at]]
 	src := p.sourceOf(&t)
 	if was := p.remote; was != nil && was.started && p.playing && (src == nil || src.Info().ID != was.src.Info().ID) {
@@ -797,8 +817,11 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 		p.command(was.src, was.src.RemotePause)
 	}
 	p.stop()
-	p.gen++
+	if !same {
+		p.gen++
+	}
 	gen := p.gen
+	media := p.mediaGen
 	p.at = at
 	p.track = &t
 	p.loading, p.playing, p.err = true, play, ""
@@ -808,6 +831,9 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 	p.lyricsRecord = lyrics.Record{}
 	p.pending = from
 	p.recorded = ""
+	if same {
+		p.recorded = recorded
+	}
 	p.announce(&t, nil)
 	p.refill()
 
@@ -822,7 +848,7 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 	go func() {
 		info, s, err := p.open(src, t, quality, pre)
 		p.post(func() {
-			if gen != p.gen {
+			if gen != p.gen || media != p.mediaGen {
 				if s != nil {
 					s.Close()
 				}
@@ -846,8 +872,8 @@ func (p *Player) loadSkipping(at, skipped, dir int, play bool, from time.Duratio
 			p.applyGain()
 			p.out.OnEnd(func() {
 				p.post(func() {
-					if gen == p.gen {
-						p.ended()
+					if gen == p.gen && media == p.mediaGen {
+						p.audioEnded()
 					}
 				})
 			})
@@ -912,6 +938,9 @@ func (p *Player) loadLyrics(gen int, src music.Source, t music.Track) {
 			}
 		}
 		if err == nil && data != nil {
+			if data != &record.Data {
+				record.SourceTranslationLanguage = ""
+			}
 			record.Data = *data
 			record.Updated = time.Now()
 		}
@@ -930,6 +959,9 @@ func (p *Player) loadLyrics(gen int, src music.Source, t music.Track) {
 // dir goes, unless it stays, nothing in the queue can play, or the listener has
 // to do something first, which would stop the next track too.
 func (p *Player) loadFailed(source string, err error, at, skipped, dir int) {
+	if p.recoverPlayback(err) {
+		return
+	}
 	p.err = errorText(err)
 	if errors.Is(err, music.ErrSignIn) || errors.Is(err, music.ErrSetup) {
 		p.playing = false

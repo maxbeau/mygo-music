@@ -387,7 +387,9 @@ func (a *app) nowPlayingBody(c *ui.Context, tr *music.Track, art *artwork, accen
 					qualityBadge(c, pl.Stream())
 					ui.Spacer(c)
 					status := "-" + clock(pl.Duration()-pl.Position())
-					if pl.Loading() {
+					if pl.Recovering() {
+						status = pl.RecoveryStatus()
+					} else if pl.Loading() {
 						status = T("Buffering…")
 					}
 					ui.Text(c, status).FontSize(11).FontFeatures("tnum").TextColor(white.Alpha(0.5))

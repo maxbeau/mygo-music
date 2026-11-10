@@ -196,3 +196,37 @@ func TestYouTubeLyricSearchRuntime(t *testing.T) {
 		t.Fatalf("%+v %v", data, err)
 	}
 }
+
+// Source translations pass through the actual JS runtime without changing the original lyrics.
+func TestYouTubeTranslationRuntime(t *testing.T) {
+	dir := os.Getenv("YOUTUBE_PLUGIN_DIR")
+	if dir == "" {
+		t.Skip("set YOUTUBE_PLUGIN_DIR")
+	}
+	dir, _ = filepath.Abs(dir)
+	previous := http.DefaultTransport
+	defer func() { http.DefaultTransport = previous }()
+	http.DefaultTransport = youtubeTransport(func(r *http.Request) (*http.Response, error) {
+		var answer any
+		switch {
+		case strings.Contains(r.URL.Path, "cloudsearch"):
+			answer = map[string]any{"result": map[string]any{"songs": []any{map[string]any{"id": 1, "name": "Song", "dt": 180000, "ar": []any{map[string]string{"name": "Singer"}}}}}}
+		case strings.Contains(r.URL.Path, "/lyric"):
+			answer = map[string]any{"code": 200, "lrc": map[string]string{"lyric": "[00:01.00]Original"}, "tlyric": map[string]string{"lyric": "[00:01.00]Translated"}}
+		default:
+			answer = map[string]any{"responseContext": map[string]string{"visitorData": "fixture-only"}}
+		}
+		b, _ := json.Marshal(answer)
+		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(string(b))), Request: r}, nil
+	})
+	p, err := Load(dir, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	track := music.Track{ID: "abcdefghijk", Name: "Song", Artists: []music.Artist{{Name: "Singer"}}, Duration: 180000}
+	result, err := p.LyricsTranslation(track, "zh-CN")
+	if err != nil || result == nil || result.Translation != "[00:01.00]Translated" {
+		t.Fatalf("translation %+v %v", result, err)
+	}
+}

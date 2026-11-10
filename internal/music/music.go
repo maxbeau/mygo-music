@@ -535,3 +535,17 @@ type BrowseEntry struct {
 	Station  *Station  `json:"station,omitempty"`
 	Link     *Link     `json:"link,omitempty"`
 }
+
+// DiagnosticSource checks source dependencies and connectivity without exposing account data.
+type DiagnosticCheck struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	OK    bool   `json:"ok"`
+}
+type DiagnosticSource interface {
+	Diagnostics() ([]DiagnosticCheck, error)
+}
+
+type LyricsTranslationSource interface {
+	LyricsTranslation(track Track, language string) (*Lyrics, error)
+}

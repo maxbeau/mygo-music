@@ -12,10 +12,12 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"mygo-music/internal/diagnostics"
 	"mygo-music/internal/i18n"
 	"mygo-music/internal/local"
 	"mygo-music/internal/lyrics"
 	"mygo-music/internal/music"
+	"mygo-music/internal/netpolicy"
 	"mygo-music/internal/player"
 	"mygo-music/internal/plugin"
 )
@@ -57,12 +59,13 @@ type route struct {
 // app is the state both windows show. Everything in it is read and changed
 // on the main thread: by the views, and by goroutines through post.
 type app struct {
-	win   *mygo.Window
-	notch *notch
-	tray  *mygo.Tray // the icon in the menu bar or notification area, while it shows
-	art   *artCache
-	pl    *player.Player
-	pal   palette
+	utility utilityState
+	win     *mygo.Window
+	notch   *notch
+	tray    *mygo.Tray // the icon in the menu bar or notification area, while it shows
+	art     *artCache
+	pl      *player.Player
+	pal     palette
 
 	// libs are the sources, the built-in one first, and what the app has of
 	// each. The active one's is embedded: a.mine is what the active source
@@ -341,6 +344,15 @@ func Run() error {
 	a.useUpdater(i18n.Resolve(loadSettings().Language, systemLanguages()))
 	mygo.App.WhenReady(func() {
 		a.settings = loadSettings()
+		if dir, err := mygo.App.Path(mygo.PathUserData); err == nil {
+			if closer, err := diagnostics.Start(filepath.Join(dir, "logs")); err == nil {
+				mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { closer.Close() })
+			}
+		}
+		if err := netpolicy.Configure(a.settings.Network); err != nil {
+			a.toast = T("Couldn't apply the saved network settings")
+		}
+
 		a.settings.applyAppearance()
 		i18n.SetLanguage(i18n.Resolve(a.settings.Language, systemLanguages()))
 		a.npPane = a.lyricsPaneChosen()
@@ -351,8 +363,15 @@ func Run() error {
 		a.pl = player.New(a.post)
 		a.pl.Quiet = func(fn func()) { mygo.RunOnMain(fn) }
 		a.pl.Source = a.sourceByID
+		if err := a.applyShortcuts(a.settings.Shortcuts); err != nil {
+			a.toast = err.Error()
+		}
 		a.pl.Failed = a.sourceFailed
 		a.pl.Autoplay = a.autoplayRadio
+		a.pl.NetworkChanged(mygo.Network.Status().Online)
+		mygo.Network.OnChanged(func(status mygo.NetworkStatus) {
+			a.pl.NetworkChanged(status.Online)
+		})
 		a.pl.Quality = func() string { return a.settings.Quality }
 		a.pl.Normalize = func() bool { return a.settings.Normalize }
 		a.pl.Cache = newSongCache(a.settings.CacheMB)

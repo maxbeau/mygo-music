@@ -376,6 +376,8 @@ func (a *app) settingsSections(c *ui.Context, p palette) []settingsSection {
 	})
 
 	add("plugins", T("Plugins"), iconPlug, func(row settingsRow, block settingsBlock) { a.sourceSettings(c, row, block, p) })
+	add("network", T("Network & Diagnostics"), iconLaptop, func(row settingsRow, block settingsBlock) { a.networkSettings(c, row, block, p) })
+	add("shortcuts", T("Global Shortcuts"), iconSettings, func(row settingsRow, block settingsBlock) { a.shortcutSettings(c, row, block, p) })
 	add("lyrics", T("Lyrics"), iconNote, func(row settingsRow, block settingsBlock) { a.lyricsSettings(c, row, block, p) })
 
 	// Only on macOS, the one with a notch player.

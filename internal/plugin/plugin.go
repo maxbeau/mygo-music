@@ -408,7 +408,7 @@ func (v *vm) close() {
 const helperBody = `
 const fail = (e) => {
   const isObject = e !== null && typeof e === "object";
-  bad(String((isObject && e.code) || ""), isObject ? String(e.message || "") : String(e));
+  bad(String((isObject && e.code) || ""), isObject ? String(e.message || "") : String(e), isObject ? Math.max(0,Math.min(900000,Number(e.retryAfter)||0)) : 0);
 };
 try {
   Promise.resolve(fn(arg)).then((r) => ok(r === undefined ? null : r), fail);
@@ -520,7 +520,14 @@ type answer struct {
 }
 
 // asError is the error a plugin threw, those the app acts on by what they are.
-func asError(code, message string) error {
+func asError(code, message string, retryMS ...float64) error {
+	if code == "network" || code == "rateLimited" {
+		delay := time.Duration(0)
+		if len(retryMS) > 0 {
+			delay = time.Duration(retryMS[0]) * time.Millisecond
+		}
+		return &music.TemporaryError{Message: message, After: delay, Limited: code == "rateLimited" || delay > 0}
+	}
 	var known error
 	switch code {
 	case "signIn":
@@ -574,7 +581,7 @@ func (v *vm) ask(method string, params []byte, got func(answer)) {
 		return moejs.Undefined(), nil
 	})
 	badFn := rt.Function("bad", 2, func(_ *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
-		done(answer{err: asError(moejs.Arg(args, 0).String(), moejs.Arg(args, 1).String())})
+		done(answer{err: asError(moejs.Arg(args, 0).String(), moejs.Arg(args, 1).String(), moejs.Arg(args, 2).AsNumber())})
 		return moejs.Undefined(), nil
 	})
 	if _, err := rt.CallFunction(v.helper, moejs.Undefined(), fn, arg, okFn, badFn); err != nil {

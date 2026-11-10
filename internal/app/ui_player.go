@@ -397,6 +397,8 @@ func (a *app) playerBar(c *ui.Context) {
 					var sub string
 					color := p.muted
 					switch {
+					case pl.Recovering():
+						sub = pl.RecoveryStatus()
 					case pl.Loading():
 						sub = T("Buffering…")
 					case pl.Err() != "":

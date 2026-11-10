@@ -102,6 +102,10 @@ func (a *app) shortcuts(c *ui.Context) {
 		a.nowPlaying = false
 		a.searchBox.Focus(c)
 	})
+	if a.nowPlaying && !a.lyricTools.open && a.pl.Current() != nil && a.pl.Current().ShowID == "" {
+		c.OnShortcut(0, ui.KeyBracketLeft, func() { a.lyricOffset(-500) })
+		c.OnShortcut(0, ui.KeyBracketRight, func() { a.lyricOffset(500) })
+	}
 	if a.nowPlaying {
 		c.OnShortcut(0, ui.KeyEscape, func() { a.nowPlaying = false })
 		// ⌘ and a number choose Now Playing's tab of that place.

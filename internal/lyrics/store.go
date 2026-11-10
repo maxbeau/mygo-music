@@ -16,14 +16,16 @@ import (
 
 // Record keeps the selected lyrics and per-song changes apart from audio playback.
 type Record struct {
-	Data          music.Lyrics        `json:"data"`
-	Manual        bool                `json:"manual,omitempty"`
-	OffsetMS      int64               `json:"offsetMs,omitempty"`
-	Romanize      *bool               `json:"romanize,omitempty"`
-	Romanized     []string            `json:"romanized,omitempty"`
-	RomanizedHash string              `json:"romanizedHash,omitempty"`
-	Translations  map[string][]string `json:"translations,omitempty"`
-	Updated       time.Time           `json:"updated"`
+	Data                      music.Lyrics        `json:"data"`
+	SourceTranslationLanguage string              `json:"sourceTranslationLanguage,omitempty"`
+	MachineTranslation        bool                `json:"machineTranslation,omitempty"`
+	Manual                    bool                `json:"manual,omitempty"`
+	OffsetMS                  int64               `json:"offsetMs,omitempty"`
+	Romanize                  *bool               `json:"romanize,omitempty"`
+	Romanized                 []string            `json:"romanized,omitempty"`
+	RomanizedHash             string              `json:"romanizedHash,omitempty"`
+	Translations              map[string][]string `json:"translations,omitempty"`
+	Updated                   time.Time           `json:"updated"`
 }
 
 // Store uses one atomic JSON file per source/song; no account data is stored here.

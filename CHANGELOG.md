@@ -2,6 +2,15 @@
 
 All notable changes to MyGo Music are written down here. Versions follow [Semantic Versioning](https://semver.org).
 
+## [0.1.31] - 2026-11-10
+
+- Added shared proxy settings, connection/dependency checks and redacted report export.
+- Temporary network/rate-limit failures retry the same song and position without replacing the radio queue.
+- Added encrypted plugin credentials backed by the system credential store.
+- Prefer matched provider lyric translations; added offline Chinese script conversion on macOS.
+- Added configurable global shortcuts and bracket-key lyric calibration.
+- macOS 14+ isolated sign-in windows follow the explicit proxy policy; other platforms keep their system WebView proxy.
+
 ## [0.1.22] - 2026-11-07
 
 ### Fixed
